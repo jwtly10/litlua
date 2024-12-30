@@ -1,7 +1,7 @@
 package litlua
 
 // Document represents a parsed markdown document containing
-// pragmas and code blocks, and any other required metadata about the parse
+// pragmas and code blocks, and any other required metadata about the source file
 type Document struct {
 	// Metadata about the source file
 	Metadata MetaData
@@ -18,9 +18,10 @@ type MetaData struct {
 
 type Pragma struct {
 	// the lua file output
-	// default is be the name of the markdownfile.lua
+	// default is the name of the markdown file used for input
 	Output string
-	Debug  bool
+	// internal flag for additional debugging output
+	Debug bool
 }
 
 type CodeBlock struct {
