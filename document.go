@@ -16,14 +16,17 @@ type MetaData struct {
 	Source string
 }
 
+type PragmaKey string
+
+const (
+	PragmaOutput PragmaKey = "output"
+	PragmaDebug  PragmaKey = "debug"
+)
+
 type Pragma struct {
-	// the lua file output
-	// default is the name of the markdown file used for input
-	//
-	// Note: this pragma is always relative to the source markdown file
-	// not the cwd
+	// The lua file output directory, relative to the source markdown file
 	Output string
-	// internal flag for additional debugging output
+	// Internal flag for additional debugging output
 	Debug bool
 }
 

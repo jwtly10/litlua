@@ -178,9 +178,9 @@ func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 	slog.Debug("Parsed pragma key value pair", "key", key, "value", value)
 
 	switch key {
-	case "output":
+	case string(PragmaOutput):
 		pragma.Output = value
-	case "debug":
+	case string(PragmaDebug):
 		b, err := strconv.ParseBool(value)
 		if err != nil {
 			return fmt.Errorf("could not parse debug pragma value: %w", err)

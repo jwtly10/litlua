@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/jwtly10/litlua"
@@ -23,10 +23,18 @@ func main() {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})))
+	} else {
+		slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	}
 
 	if inFile == "" {
 		fmt.Println("Please provide an input file with -in")
+		os.Exit(1)
+	}
+
+	absPath, err := filepath.Abs(inFile)
+	if err != nil {
+		fmt.Printf("Error resolving absolute path: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -37,18 +45,34 @@ func main() {
 	}
 	defer f.Close()
 
+	fmt.Printf("🔍 Processing %s\n", filepath.Base(inFile))
+
 	parser := litlua.NewParser()
 	doc, err := parser.ParseMarkdownDoc(f, litlua.MetaData{
-		Source: inFile,
+		Source: absPath,
 	})
 	if err != nil {
 		fmt.Printf("Error parsing document: %v\n", err)
 		os.Exit(1)
 	}
 
-	outPath := doc.Pragmas.Output
-	if outPath == "" {
-		outPath = strings.TrimSuffix(inFile, filepath.Ext(inFile)) + ".lua"
+	fmt.Printf("📝 Found %d Lua blocks to process\n", len(doc.Blocks))
+
+	outPath, err := litlua.ResolveOutputPath(inFile, doc.Pragmas)
+	if err != nil {
+		fmt.Printf("Error resolving output path: %v\n", err)
+		os.Exit(1)
+	}
+
+	backupMgr := litlua.NewBackupManager(outPath)
+	backupPath, err := backupMgr.CreateBackup()
+	if err != nil {
+		fmt.Printf("Error creating backup: %v\n", err)
+		os.Exit(1)
+	}
+
+	if backupPath != "" {
+		fmt.Printf("💾 Created backup of existing file to %v\n", backupPath)
 	}
 
 	out, err := os.Create(outPath)
@@ -65,5 +89,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Wrote %s to %s\n", inFile, outPath)
+	fmt.Printf("✨ Successfully wrote output to %s\n", outPath)
+
 }
