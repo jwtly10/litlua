@@ -1,3 +1,3 @@
 # LitLua
 
-A small transpiler for Literate Lua programming
+A small extract for Literate Lua programming from markdown files

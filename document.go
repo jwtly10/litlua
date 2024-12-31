@@ -5,7 +5,7 @@ package litlua
 type Document struct {
 	// Metadata about the source file
 	Metadata MetaData
-	// Document-level pragmas controlling transpilation options
+	// Document-level pragmas controlling extraction options
 	Pragmas Pragma
 	// The extracted code blocks
 	Blocks []CodeBlock
@@ -33,6 +33,6 @@ type Pragma struct {
 type CodeBlock struct {
 	// The code that was parsed from the markdown source
 	Code string
-	// The original markdown source code file where the code block transpiled from
+	// The original markdown source code file where the code block extracted from
 	Source string
 }

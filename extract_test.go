@@ -11,7 +11,7 @@ import (
 	"gotest.tools/v3/golden"
 )
 
-func TestTranspileMarkdown(t *testing.T) {
+func TestExtractLuaFromMarkdown(t *testing.T) {
 	tests := []struct {
 		name      string
 		inFile    string
