@@ -14,11 +14,25 @@ import (
 )
 
 func main() {
-	var inFile string
 	var debug bool
-	flag.StringVar(&inFile, "in", "", "Input markdown file")
 	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "A tool for processing Lua blocks in markdown files\n\n")
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  litlua example.md\n")
+		fmt.Fprintf(os.Stderr, "  litlua -debug example.md\n")
+	}
 	flag.Parse()
+
+	args := flag.Args()
+	if len(args) != 1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	inFile := args[0]
 
 	if debug {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{

@@ -59,13 +59,13 @@ Basic usage:
 Converts markdown document to lua file:
 
 ```bash
-litlua -in <your_configuration_file_with_lua_src.md>
+litlua <your_configuration_file_with_lua_src.md>
 ```
 
 Enable debug logging during conversion:
 
 ```bash
-litlua -in <your_configuration_file_with_lua_src.md> -debug
+litlua -debug <your_configuration_file_with_lua_src.md>
 ```
 
 ### File Format
@@ -137,8 +137,10 @@ By default, LitLua will generate the output file in the same directory as the in
 
 ```bash
 git clone https://github.com/jwtly10/litlua
-go run ./cmd/litlua/main.go -in ./examples/kickstart.nvim/kickstart_configuration.md
+go run ./cmd/litlua/main.go ./examples/kickstart.nvim/kickstart_configuration.md
 ```
+
+You will see a newly generated file in ./examples/kickstart.nvim/output.lua
 
 ### Running Tests
 
