@@ -1,4 +1,4 @@
-# LitLua
+# LitLua v0.0.1
 
 LitLua is a literate programming tool inspired by Emacs designed to support better formating of lua based configuration. It enables you to write and maintain well-documented Lua configurations by transforming literate Markdown docs into executable Lua code.
 
@@ -18,6 +18,11 @@ After spending some time with Emacs, I could see the value of having litterate c
 
 For now its a simply extracter of lua source code but future versions will include syntax checking, and other features to make it a more complete tool.
 
+
+> Check out [Examples](https://github.com/jwtly10/litlua/tree/64b8e4407167ddac72ccd8c92c97f5a331c24550/examples) for a small showcase of what LitLua is about. 
+> 
+> I've re-written some of [kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) in markdown and used LitLua to generate the lua files, you can see the same for an example wezterm config. *.lua is the transpiled file, *.md is the markdown source.
+
 ## Roadmap
 - [X] Basic Markdown to Lua conversion to SFO
 - [ ] Single file to multiple file output (master file, into multiple configuration .lua files)
@@ -25,6 +30,8 @@ For now its a simply extracter of lua source code but future versions will inclu
 - [ ] Built in lua LSP support (linter, formatter, etc)
 - [ ] 'Tagging' of code blocks for easy reference
 - [ ] Watch mode for live updating of configuration files
+
+Generally the idea is this should seamlessly integrate into existing lua based configuration setups, such as Neovim, and work alongside existing lua files.
 
 ## Installation
 

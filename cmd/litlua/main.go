@@ -52,14 +52,14 @@ func main() {
 	}
 	defer f.Close()
 
-	fmt.Printf("🔍 Processing %s\n", filepath.Base(inFile))
+	fmt.Printf("\n🔍 LitLua is running! Source: %s\n\n", filepath.Base(inFile))
 
 	parser := litlua.NewParser()
 	doc, err := parser.ParseMarkdownDoc(f, litlua.MetaData{
 		Source: absPath,
 	})
 	if err != nil {
-		fmt.Printf("Error parsing document: %v\n", err)
+		fmt.Printf("Error parsing source file: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -79,7 +79,7 @@ func main() {
 	}
 
 	if backupPath != "" {
-		fmt.Printf("💾 Created backup of existing file to %v\n", backupPath)
+		fmt.Printf("💾 Created backup of existing file to %v\n", litlua.MustAbs(backupPath))
 	}
 
 	out, err := os.Create(outPath)
@@ -96,6 +96,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("✨ Successfully wrote output to %s\n", outPath)
+	fmt.Printf("✨ Successfully wrote output to %s\n", litlua.MustAbs(outPath))
 
 }

@@ -3,7 +3,7 @@
 
 ‎
 
-‎ ‎*Welcome to my literate for Wezterm!*
+‎ ‎*Welcome to my literate config for Wezterm!*
 
 ‎
 
