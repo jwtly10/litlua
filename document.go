@@ -19,6 +19,9 @@ type MetaData struct {
 type Pragma struct {
 	// the lua file output
 	// default is the name of the markdown file used for input
+	//
+	// Note: this pragma is always relative to the source markdown file
+	// not the cwd
 	Output string
 	// internal flag for additional debugging output
 	Debug bool

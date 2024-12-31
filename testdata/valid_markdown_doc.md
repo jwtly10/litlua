@@ -14,3 +14,15 @@ print("Hello World")
 print("Goodbye World")
 
 ```
+
+``` java
+public class HelloWorld {
+    public static void main(String[] args) {
+    AbstractValueDecoratorMethodWorkerExceptionExporterValueInterpreterBridgeImporterMethodTagPrototype foo = null;
+    try {
+        foo = new AbstractValueDecoratorMethodWorkerExceptionExporterValueInterpreterBridgeImporterMethodTagPrototype();
+    } catch (Exception e) {
+        throw new RuntimeException("Exception thrown");
+    }
+}
+```

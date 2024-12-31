@@ -3,7 +3,6 @@ package litlua
 import (
 	"fmt"
 	"io"
-	"strings"
 	"time"
 )
 
@@ -36,9 +35,6 @@ func (w *Writer) Write(doc *Document, now time.Time) error {
 	for _, block := range doc.Blocks {
 		if _, err := fmt.Fprintf(w.output, "%s\n", block.Code); err != nil {
 			return fmt.Errorf("writing block: %w", err)
-		}
-		if !strings.HasSuffix(block.Code, "\n") {
-			fmt.Fprintln(w.output)
 		}
 	}
 
