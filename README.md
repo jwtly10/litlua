@@ -2,6 +2,8 @@
 
 LitLua is a literate programming tool inspired by Emacs designed to support better formating of lua based configuration. It enables you to write and maintain well-documented Lua configurations by transforming literate Markdown docs into executable Lua code.
 
+🚨 This is a work in progress, and not truly ready to handle all your configuration needs yet!
+
 ## Features
 
 - 📝 **Markdown-Based**: Write your configurations in familiar Markdown format
@@ -9,10 +11,20 @@ LitLua is a literate programming tool inspired by Emacs designed to support bett
 - 💾 **Redundancy Precautions**: Automatically creates backups of configuration files before overwriting
 - 🛠 **Simple CLI Interface**: Easy to use command-line tool
 
+
+## Why?
+
+After spending some time with Emacs, I could see the value of having litterate configurations for more than just the emacs eco system - configurations being just a readable 'pretty' markdown file, that will be 'transpiled' into the expected format!
+
+For now its a simply extracter of lua source code but future versions will include syntax checking, and other features to make it a more complete tool.
+
 ## Roadmap
+- [X] Basic Markdown to Lua conversion to SFO
 - [ ] Single file to multiple file output (master file, into multiple configuration .lua files)
-- [ ] Hot swapping configuration
-- [ ] Built in lua LSP support
+- [ ] Hot swapping configuration management
+- [ ] Built in lua LSP support (linter, formatter, etc)
+- [ ] 'Tagging' of code blocks for easy reference
+- [ ] Watch mode for live updating of configuration files
 
 ## Installation
 
@@ -30,7 +42,10 @@ go build -o litlua cmd/litlua/main.go
 mv litlua /usr/local/bin  
 ```
 
+More installation options will be available in the future.
+
 ## Usage
+
 
 Basic usage:
 
@@ -85,6 +100,7 @@ vim.keymap.set('n', '<leader>fg',
 
 The tool will:
 1. Parse the Markdown document
+2. Extract pragma directives at the top of the file, such as `output`
 2. Extract Lua code blocks
 3. Generate a clean Lua file with all the code to the output file `init.lua`
 4. Create a backup of any existing output file
