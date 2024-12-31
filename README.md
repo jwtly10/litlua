@@ -1,3 +1,132 @@
 # LitLua
 
-A small extract for Literate Lua programming from markdown files
+LitLua is a literate programming tool inspired by Emacs designed to support better formating of lua based configuration. It enables you to write and maintain well-documented Lua configurations by transforming literate Markdown docs into executable Lua code.
+
+## Features
+
+- 📝 **Markdown-Based**: Write your configurations in familiar Markdown format
+- 🔍 **Code Block Extraction**: Automatically extracts and processes Lua code blocks
+- 💾 **Redundancy Precautions**: Automatically creates backups of configuration files before overwriting
+- 🛠 **Simple CLI Interface**: Easy to use command-line tool
+
+## Roadmap
+- [ ] Single file to multiple file output (master file, into multiple configuration .lua files)
+- [ ] Hot swapping configuration
+- [ ] Built in lua LSP support
+
+## Installation
+
+### Install via Go
+```bash
+# Assuming you have go installed - https://go.dev/doc/install 
+go install github.com/jwtly10/litlua@latest
+```
+
+### Build from source
+```bash
+git clone https://github.com/jwtly10/litlua.git
+go build -o litlua cmd/litlua/main.go
+# Move the binary to your PATH  
+mv litlua /usr/local/bin  
+```
+
+## Usage
+
+Basic usage:
+
+Converts markdown document to lua file:
+
+```bash
+litlua -in configuration.md
+```
+
+Enable debug logging during conversion:
+
+```bash
+litlua -in init.luadoc -debug
+```
+
+### File Format
+
+LitLua processes Markdown files (`.md`) containing Lua code blocks. Here's an example:
+
+````markdown
+<!-- @pragma output: init.lua -->
+
+# Neovim Telescope Configuration
+
+Our telescope setup with detailed explanations.
+
+```lua
+require('telescope').setup({
+    defaults = {
+        mappings = {
+            i = {
+                ['<C-u>'] = false,
+                ['<C-d>'] = false,
+            },
+        },
+    },
+})
+```
+
+This configures the basic telescope behavior. Let's add some keymaps:
+
+```lua
+-- File browsing
+vim.keymap.set('n', '<leader>ff', 
+    require('telescope.builtin').find_files)
+
+-- Live grep
+vim.keymap.set('n', '<leader>fg', 
+    require('telescope.builtin').live_grep)
+```
+````
+
+The tool will:
+1. Parse the Markdown document
+2. Extract Lua code blocks
+3. Generate a clean Lua file with all the code to the output file `init.lua`
+4. Create a backup of any existing output file
+
+### Output
+
+LitLua generates a single Lua file containing all the extracted code blocks, maintaining their original order as specified in the Markdown source.
+
+## Configuration
+
+### Output Path Resolution
+
+By default, LitLua will generate the output file in the same directory as the input file, with a `.lua` extension. You can customize the output path using pragmas **at the start** your document:
+
+> NOTE: The file path will ALWAYS be relative to the input file
+
+```markdown
+<!-- @pragma output: init.lua -->
+
+# My Neovim Configuration
+...
+```
+
+## Development
+
+### Setup locally
+
+```bash
+git clone https://github.com/jwtly10/litlua
+go run ./cmd/litlua/main.go -in testdata/basic.md
+```
+
+### Running Tests
+
+```bash
+go test ./...
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
