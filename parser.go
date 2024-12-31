@@ -48,6 +48,10 @@ func (p *Parser) ParseMarkdownDoc(r io.Reader, md MetaData) (*Document, error) {
 		return nil, err
 	}
 
+	if len(doc.Blocks) == 0 {
+		return nil, fmt.Errorf("no lua code blocks found in document")
+	}
+
 	return doc, nil
 }
 

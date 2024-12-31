@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jwtly10/litlua"
@@ -29,6 +30,12 @@ func main() {
 
 	if inFile == "" {
 		fmt.Println("Please provide an input file with -in")
+		os.Exit(1)
+	}
+
+	ext := strings.ToLower(filepath.Ext(inFile))
+	if ext != ".md" {
+		fmt.Printf("Error: Invalid file extension %q. Supported extensions are: .md\n", ext)
 		os.Exit(1)
 	}
 

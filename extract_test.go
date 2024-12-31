@@ -11,7 +11,7 @@ import (
 	"gotest.tools/v3/golden"
 )
 
-func TestExtractLuaFromMarkdown(t *testing.T) {
+func TestCanHandleExtractingDataFromFiles(t *testing.T) {
 	tests := []struct {
 		name      string
 		inFile    string
@@ -22,7 +22,15 @@ func TestExtractLuaFromMarkdown(t *testing.T) {
 			name:   "basic neovim config",
 			inFile: "basic",
 			metadata: MetaData{
-				Source: "testdata/basic.md",
+				Source: "testdata/extract/basic.md",
+			},
+			fixedTime: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:   "partial broken src block",
+			inFile: "partial_src",
+			metadata: MetaData{
+				Source: "testdata/extract/partial_src.md",
 			},
 			fixedTime: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
@@ -30,7 +38,7 @@ func TestExtractLuaFromMarkdown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input, err := os.ReadFile(fmt.Sprintf("testdata/%s.md", tt.inFile))
+			input, err := os.ReadFile(fmt.Sprintf("testdata/extract/%s.md", tt.inFile))
 			require.NoError(t, err)
 
 			parser := NewParser()
@@ -42,7 +50,7 @@ func TestExtractLuaFromMarkdown(t *testing.T) {
 			err = writer.Write(doc, tt.fixedTime)
 			require.NoError(t, err)
 
-			golden.Assert(t, buf.String(), fmt.Sprintf("%s.golden.lua", tt.inFile))
+			golden.Assert(t, buf.String(), fmt.Sprintf("extract/%s.golden.lua", tt.inFile))
 		})
 	}
 }

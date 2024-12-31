@@ -13,13 +13,14 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 		name     string
 		srcFile  string
 		document Document
+		wantErr  bool
 	}{
 		{
 			name:    "test parse basic markdown doc",
-			srcFile: "testdata/valid_markdown_doc.md",
+			srcFile: "testdata/parser/basic_valid.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/valid_markdown_doc.md",
+					Source: "testdata/parser/basic_valid.md",
 				},
 				Pragmas: Pragma{
 					Output: "init.lua",
@@ -28,34 +29,46 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 				Blocks: []CodeBlock{
 					{
 						Code:   "print(\"Hello World\")\n",
-						Source: "testdata/valid_markdown_doc.md",
+						Source: "testdata/parser/basic_valid.md",
 					},
 					{
 						Code:   "print(\"Goodbye World\")\n\n",
-						Source: "testdata/valid_markdown_doc.md",
+						Source: "testdata/parser/basic_valid.md",
 					},
 				},
 			},
 		},
 		{
 			name:    "test parse basic markdown doc with bad pragmas",
-			srcFile: "testdata/valid_markdown_doc_invalid_pragma.md",
+			srcFile: "testdata/parser/basic_invalid.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/valid_markdown_doc_invalid_pragma.md",
+					Source: "testdata/parser/basic_invalid.md",
 				},
 				Pragmas: Pragma{},
 				Blocks: []CodeBlock{
 					{
 						Code:   "print(\"Hello World\")\n",
-						Source: "testdata/valid_markdown_doc_invalid_pragma.md",
+						Source: "testdata/parser/basic_invalid.md",
 					},
 					{
 						Code:   "print(\"Goodbye World\")\n\n",
-						Source: "testdata/valid_markdown_doc_invalid_pragma.md",
+						Source: "testdata/parser/basic_invalid.md",
 					},
 				},
 			},
+		},
+		{
+			name:    "test fail to parse file with no lua",
+			srcFile: "testdata/parser/no_lua.md",
+			document: Document{
+				Metadata: MetaData{
+					Source: "testdata/parser/no_lua.md",
+				},
+				Pragmas: Pragma{},
+				Blocks:  []CodeBlock{},
+			},
+			wantErr: true,
 		},
 	}
 
@@ -69,6 +82,10 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 			d, err := parser.ParseMarkdownDoc(f, MetaData{
 				tc.srcFile,
 			})
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
 			if err != nil {
 				t.Errorf("Could not parse document: %v", err)
 			}
