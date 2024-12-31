@@ -36,9 +36,9 @@ Generally the idea is this should seamlessly integrate into existing lua based c
 ## Installation
 
 ### Install via Go
+Assuming you have go installed - https://go.dev/doc/install 
 ```bash
-# Assuming you have go installed - https://go.dev/doc/install 
-go install github.com/jwtly10/litlua@latest
+go install github.com/jwtly10/litlua/cmd/litlua@latest
 ```
 
 ### Build from source
@@ -59,13 +59,13 @@ Basic usage:
 Converts markdown document to lua file:
 
 ```bash
-litlua -in configuration.md
+litlua -in <your_configuration_file_with_lua_src.md>
 ```
 
 Enable debug logging during conversion:
 
 ```bash
-litlua -in init.luadoc -debug
+litlua -in <your_configuration_file_with_lua_src.md> -debug
 ```
 
 ### File Format
@@ -107,7 +107,7 @@ vim.keymap.set('n', '<leader>fg',
 
 The tool will:
 1. Parse the Markdown document
-2. Extract pragma directives at the top of the file, such as `output`
+2. Extract pragma directives at the top of the file, such as `output:init.lua`
 2. Extract Lua code blocks
 3. Generate a clean Lua file with all the code to the output file `init.lua`
 4. Create a backup of any existing output file
@@ -137,7 +137,7 @@ By default, LitLua will generate the output file in the same directory as the in
 
 ```bash
 git clone https://github.com/jwtly10/litlua
-go run ./cmd/litlua/main.go -in testdata/basic.md
+go run ./cmd/litlua/main.go -in ./examples/kickstart.nvim/kickstart_configuration.md
 ```
 
 ### Running Tests
