@@ -20,8 +20,6 @@ type Parser struct {
 	gm goldmark.Markdown
 }
 
-type Option func(*Parser)
-
 func NewParser() *Parser {
 	return &Parser{
 		gm: goldmark.New(),
@@ -76,7 +74,7 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 
 		switch node := n.(type) {
 		case *ast.HTMLBlock:
-			if err := p.handlePragmaBlock(node, content, hasWalkedOtherNodes, result); err != nil {
+			if err := p.handleHTMLBlock(node, content, hasWalkedOtherNodes, result); err != nil {
 				return ast.WalkStop, err
 			}
 		case *ast.FencedCodeBlock:
@@ -89,9 +87,9 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 	})
 }
 
-// handlePragmaBlock parses pragma values from HTML comments in markdown
+// handleHTMLBlock parses pragma values from HTML comments in markdown.
 //
-// Only HTML comments at the top of the .md file are considered pragmas//
+// # Only HTML comments at the top of the .md file are considered pragmas
 //
 // For example:
 //
@@ -116,8 +114,8 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 // [EOF]
 //
 // will not set the [Pragma] struct as the comments are not at the top of the file
-func (p *Parser) handlePragmaBlock(hb *ast.HTMLBlock, content []byte, hasWalkedOtherNodes *bool, doc *Document) error {
-	slog.Debug("Parsing pragma block", "hasWalkedOtherNodes", *hasWalkedOtherNodes)
+func (p *Parser) handleHTMLBlock(hb *ast.HTMLBlock, content []byte, hasWalkedOtherNodes *bool, doc *Document) error {
+	slog.Debug("Parsing html block", "hasWalkedOtherNodes", *hasWalkedOtherNodes)
 	if !*hasWalkedOtherNodes && hb.HTMLBlockType == ast.HTMLBlockType2 {
 		var buf bytes.Buffer
 		l := hb.Lines().Len()
@@ -141,6 +139,7 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 
 	var buf bytes.Buffer
 	l := cb.Lines().Len()
+	slog.Debug("Parsing lua code block", "lines", l)
 	for i := 0; i < l; i++ {
 		line := cb.Lines().At(i)
 		buf.Write(line.Value(content))

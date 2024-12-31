@@ -3,6 +3,7 @@ package litlua
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"time"
 )
 
@@ -37,6 +38,8 @@ func (w *Writer) Write(doc *Document, now time.Time) error {
 			return fmt.Errorf("writing block: %w", err)
 		}
 	}
+
+	slog.Debug("Wrote document to output", "blocks", len(doc.Blocks))
 
 	return nil
 }

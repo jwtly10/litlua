@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,8 +14,16 @@ import (
 
 func main() {
 	var inFile string
+	var debug bool
 	flag.StringVar(&inFile, "in", "", "Input markdown file")
+	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
 	flag.Parse()
+
+	if debug {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})))
+	}
 
 	if inFile == "" {
 		fmt.Println("Please provide an input file with -in")
@@ -55,4 +64,6 @@ func main() {
 		fmt.Printf("Error writing output: %v\n", err)
 		os.Exit(1)
 	}
+
+	fmt.Printf("Wrote %s to %s\n", inFile, outPath)
 }
