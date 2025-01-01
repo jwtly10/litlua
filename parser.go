@@ -62,56 +62,11 @@ func getLineNumber(content []byte, byteOffset int) int {
 // walkAst walks the AST of a markdown document and extracts pragmas and code blocks
 // from the document
 func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool, result *Document) error {
-	var printNode func(n ast.Node, depth int)
-	printNode = func(n ast.Node, depth int) {
-		indent := strings.Repeat("  ", depth)
-		kind := fmt.Sprintf("%T", n)
-		kind = strings.TrimPrefix(kind, "*ast.")
-
-		position := ""
-		if block, ok := n.(ast.Node); ok {
-			switch block.(type) {
-			case *ast.Text:
-				return
-			}
-
-			fmt.Printf("%T\n", block)
-
-			if segment := block.Lines(); segment.Len() > 0 {
-				startLine := segment.At(0)
-				endLine := segment.At(segment.Len() - 1)
-
-				realEndLine := getLineNumber(content, endLine.Stop) - 1
-				realStartLine := getLineNumber(content, startLine.Start)
-
-				if realStartLine == realEndLine {
-					position = fmt.Sprintf(" [line %d]", realStartLine)
-				} else {
-					position = fmt.Sprintf(" [lines %d-%d]", realStartLine, realEndLine)
-				}
-
-				//realEndLine := getLineNumber(content, endLine.Stop)
-				//
-				//position = fmt.Sprintf(" [lines %d-%d]", realStartLine, realEndLine)
-			}
-		}
-
-		fmt.Printf("%s%s%s\n", indent, kind, position)
-
-		for child := n.FirstChild(); child != nil; child = child.NextSibling() {
-			printNode(child, depth+1)
-		}
-	}
-
-	fmt.Println("Document Tree:")
-	printNode(doc, 0)
-	fmt.Println("-------------------")
-
 	return ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			// Entering is true BEFORE walking children, false after walking child
 			// this way we only trigger the logic when entering a node,
-			// and dont retrigger upon exiting
+			// and don-t re-trigger upon exiting
 			return ast.WalkContinue, nil
 		}
 
@@ -190,18 +145,31 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 		return nil
 	}
 
+	lines := cb.Lines()
+
+	startLine := getLineNumber(content, lines.At(0).Start)
+	endLine := getLineNumber(content, lines.At(lines.Len()-1).Stop)
+
 	var buf bytes.Buffer
-	l := cb.Lines().Len()
-	slog.Debug("Parsing lua code block", "lines", l)
+	l := lines.Len()
 	for i := 0; i < l; i++ {
-		line := cb.Lines().At(i)
+		line := lines.At(i)
 		buf.Write(line.Value(content))
 	}
 
-	doc.Blocks = append(doc.Blocks, CodeBlock{
-		Code:   buf.String(),
+	block := CodeBlock{
+		// We trim the last \n since the md parsing always appends a newline, even when not needed
+		Code:   trimNewline(buf.String()),
 		Source: doc.Metadata.Source,
-	})
+		Position: Position{
+			startLine,
+			endLine,
+		},
+	}
+
+	slog.Debug("Parsed code block", "block", block)
+
+	doc.Blocks = append(doc.Blocks, block)
 	return nil
 }
 
@@ -244,4 +212,12 @@ func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 	}
 
 	return nil
+}
+
+// trimNewline trims the newline character from the end of a string
+func trimNewline(s string) string {
+	if strings.HasSuffix(s, "\n") {
+		return s[:len(s)-1]
+	}
+	return s
 }

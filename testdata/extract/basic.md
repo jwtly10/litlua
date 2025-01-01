@@ -31,6 +31,7 @@ vim.keymap.set('n', '<leader>w', ':w<CR>')
 
 -- Quick quit
 vim.keymap.set('n', '<leader>q', ':q<CR>')
+
 ```
 
 ## Plugin Setup

@@ -28,12 +28,28 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 				},
 				Blocks: []CodeBlock{
 					{
-						Code:   "print(\"Hello World\")\n",
+						Code:   "print(\"Hello World\")",
 						Source: "testdata/parser/basic_valid.md",
+						Position: Position{
+							StartLine: 10,
+							EndLine:   11,
+						},
 					},
 					{
-						Code:   "print(\"Goodbye World\")\n\n",
+						Code:   "print(\"Goodbye World\")\n",
 						Source: "testdata/parser/basic_valid.md",
+						Position: Position{
+							StartLine: 15,
+							EndLine:   17,
+						},
+					},
+					{
+						Code:   "print(\"Goodbye World\")\n-- This is a multiline lua src",
+						Source: "testdata/parser/basic_valid.md",
+						Position: Position{
+							StartLine: 20,
+							EndLine:   22,
+						},
 					},
 				},
 			},
@@ -48,12 +64,20 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 				Pragmas: Pragma{},
 				Blocks: []CodeBlock{
 					{
-						Code:   "print(\"Hello World\")\n",
+						Code:   "print(\"Hello World\")",
 						Source: "testdata/parser/basic_invalid.md",
+						Position: Position{
+							StartLine: 11,
+							EndLine:   12,
+						},
 					},
 					{
-						Code:   "print(\"Goodbye World\")\n\n",
+						Code:   "print(\"Goodbye World\")\n",
 						Source: "testdata/parser/basic_invalid.md",
+						Position: Position{
+							StartLine: 15,
+							EndLine:   17,
+						},
 					},
 				},
 			},
@@ -92,6 +116,9 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 
 			for i := 0; i < len(d.Blocks); i++ {
 				require.Equal(t, tc.document.Blocks[i].Code, d.Blocks[i].Code)
+				require.Equal(t, tc.document.Blocks[i].Source, d.Blocks[i].Source)
+				require.Equal(t, tc.document.Blocks[i].Position.StartLine, d.Blocks[i].Position.StartLine)
+				require.Equal(t, tc.document.Blocks[i].Position.EndLine, d.Blocks[i].Position.EndLine)
 			}
 
 			require.Equal(t, tc.document.Pragmas, d.Pragmas)

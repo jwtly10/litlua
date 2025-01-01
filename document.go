@@ -35,4 +35,13 @@ type CodeBlock struct {
 	Code string
 	// The original markdown source code file where the code block extracted from
 	Source string
+	// The position of the code block in the source file
+	Position Position
+}
+
+// Position represents the start and end line numbers of a code block in the source file
+type Position struct {
+	StartLine int
+	// Note the end line always contains the ``` of the code block
+	EndLine int
 }
