@@ -55,9 +55,58 @@ func (p *Parser) ParseMarkdownDoc(r io.Reader, md MetaData) (*Document, error) {
 	return doc, nil
 }
 
+func getLineNumber(content []byte, byteOffset int) int {
+	return bytes.Count(content[:byteOffset], []byte("\n")) + 1
+}
+
 // walkAst walks the AST of a markdown document and extracts pragmas and code blocks
 // from the document
 func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool, result *Document) error {
+	var printNode func(n ast.Node, depth int)
+	printNode = func(n ast.Node, depth int) {
+		indent := strings.Repeat("  ", depth)
+		kind := fmt.Sprintf("%T", n)
+		kind = strings.TrimPrefix(kind, "*ast.")
+
+		position := ""
+		if block, ok := n.(ast.Node); ok {
+			switch block.(type) {
+			case *ast.Text:
+				return
+			}
+
+			fmt.Printf("%T\n", block)
+
+			if segment := block.Lines(); segment.Len() > 0 {
+				startLine := segment.At(0)
+				endLine := segment.At(segment.Len() - 1)
+
+				realEndLine := getLineNumber(content, endLine.Stop) - 1
+				realStartLine := getLineNumber(content, startLine.Start)
+
+				if realStartLine == realEndLine {
+					position = fmt.Sprintf(" [line %d]", realStartLine)
+				} else {
+					position = fmt.Sprintf(" [lines %d-%d]", realStartLine, realEndLine)
+				}
+
+				//realEndLine := getLineNumber(content, endLine.Stop)
+				//
+				//position = fmt.Sprintf(" [lines %d-%d]", realStartLine, realEndLine)
+			}
+		}
+
+		fmt.Printf("%s%s%s\n", indent, kind, position)
+
+		for child := n.FirstChild(); child != nil; child = child.NextSibling() {
+			printNode(child, depth+1)
+		}
+	}
+
+	fmt.Println("Document Tree:")
+	printNode(doc, 0)
+	fmt.Println("-------------------")
+
 	return ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			// Entering is true BEFORE walking children, false after walking child
