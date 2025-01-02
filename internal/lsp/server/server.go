@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/google/uuid"
 	"github.com/jwtly10/litlua"
 	iLsp "github.com/jwtly10/litlua/internal/lsp"
 	"github.com/sourcegraph/go-lsp"
@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 type rwc struct {
@@ -66,6 +67,16 @@ func NewServer(parser *litlua.Parser, writer *iLsp.Writer) (*Server, error) {
 		processor: iLsp.NewDocumentProcessor(parser, writer),
 	}
 
+	tmpDir := filepath.Join(os.TempDir(), "litlua-"+uuid.New().String())
+	s.shadowRoot = tmpDir
+
+	// Just make sure we clean up the shadow files
+	runtime.SetFinalizer(s, func(s *Server) {
+		if err := os.RemoveAll(s.shadowRoot); err != nil {
+			slog.Error("failed to cleanup shadow files", "error", err)
+		}
+	})
+
 	l, err := NewLuaLs(s)
 	if err != nil {
 		return nil, err
@@ -90,8 +101,6 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		s.shadowRoot = filepath.Join(os.TempDir(), "litlua")
-		// At this point we know s.shadowRoot is set
 		initParams.RootPath = s.shadowRoot
 		initParams.RootURI = lsp.DocumentURI("file://" + s.shadowRoot)
 
@@ -117,11 +126,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		return s.luaLS.ForwardRequest(req.Method, params)
 	case "shutdown":
 		slog.Info("shutting down")
-		sr, err := s.ShadowRoot()
-		if err != nil {
-			return nil, err
-		}
-		if err := os.RemoveAll(sr); err != nil {
+		if err := os.RemoveAll(s.shadowRoot); err != nil {
 			slog.Error("failed to remove shadow workspace", "error", err)
 		}
 		return nil, nil
@@ -148,16 +153,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		sr, err := s.ShadowRoot()
-		if err != nil {
-			return nil, err
-		}
-
-		doc, shadowPath, err := s.processor.ProcessDocument(
-			params.TextDocument.Text,
-			fileURI.Path,
-			sr,
-		)
+		doc, shadowPath, err := s.processor.ProcessDocument(params.TextDocument.Text, fileURI.Path, s.shadowRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -200,12 +196,8 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 
 		// Process content changes
 		if len(params.ContentChanges) > 0 {
-			sr, err := s.ShadowRoot()
-			if err != nil {
-				return nil, err
-			}
 			newContent := params.ContentChanges[0].Text
-			doc, shadowPath, err := s.processor.ProcessDocument(newContent, fileURI.Path, sr)
+			doc, shadowPath, err := s.processor.ProcessDocument(newContent, fileURI.Path, s.shadowRoot)
 			if err != nil {
 				return nil, err
 			}
@@ -260,14 +252,6 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 
 func (s *Server) SendDiagnostics(ctx context.Context, params lsp.PublishDiagnosticsParams) error {
 	return s.conn.Notify(ctx, "textDocument/publishDiagnostics", params)
-}
-
-func (s *Server) ShadowRoot() (string, error) {
-	if s.shadowRoot == "" {
-		return "", fmt.Errorf("shadow root not set. This should have been set during initialization")
-	}
-
-	return s.shadowRoot, nil
 }
 
 func (s *Server) getShadowToOriginalURI(shadowURI string) string {
