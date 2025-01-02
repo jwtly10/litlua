@@ -2,11 +2,12 @@ package lsp
 
 import (
 	"fmt"
-	"github.com/jwtly10/litlua"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jwtly10/litlua"
 )
 
 type DocumentProcessor struct {
@@ -32,7 +33,7 @@ func (dp *DocumentProcessor) ProcessDocument(content, filePath, shadowRoot strin
 		return nil, "", fmt.Errorf("failed to parse markdown: %w", err)
 	}
 
-	shadowPath, err := generateShadowPath(filePath, shadowRoot)
+	shadowPath, err := createNewRawShadowPath(filePath, shadowRoot)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate shadow path: %w", err)
 	}
@@ -44,14 +45,11 @@ func (dp *DocumentProcessor) ProcessDocument(content, filePath, shadowRoot strin
 	return doc, shadowPath, nil
 }
 
-func generateShadowPath(rawFilePath, shadowRoot string) (string, error) {
-	p := filepath.Join(
-		shadowRoot,
-		// Mirror the real file path
-		rawFilePath,
-		"..",
-		filepath.Base(rawFilePath)+".lua",
-	)
+// createNewRawShadowPath generates a new shadow path for a given markdown file,
+// it will create the necessary directories if they do not exist
+// note 'raw' means an absolute path without schema
+func createNewRawShadowPath(rawFilePath, shadowRoot string) (string, error) {
+	p := GetRawShadowPathFromMd(rawFilePath, shadowRoot)
 
 	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 		return "", err
@@ -60,4 +58,15 @@ func generateShadowPath(rawFilePath, shadowRoot string) (string, error) {
 	slog.Debug("generated shadow path", "path", p)
 
 	return p, nil
+}
+
+// getShadowPathFromMd returns the shadow path for a given markdown file
+func GetRawShadowPathFromMd(rawFilePath, shadowRoot string) string {
+	return filepath.Join(
+		shadowRoot,
+		// Mirror the real file path
+		rawFilePath,
+		"..",
+		filepath.Base(rawFilePath)+".lua",
+	)
 }

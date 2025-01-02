@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sourcegraph/go-lsp"
-	"github.com/sourcegraph/jsonrpc2"
 	"log/slog"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/sourcegraph/go-lsp"
+	"github.com/sourcegraph/jsonrpc2"
 )
 
 type lspServer interface {
@@ -84,7 +85,6 @@ func (l *LuaLS) HandleResponse(ctx context.Context, conn *jsonrpc2.Conn, req *js
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
 			return nil, err
 		}
-		//slog.Debug("received diagnostics from lua-language-server", "uri", params.URI)
 
 		// Get the markdown file this diagnostic is for
 		originalURI := l.server.(*Server).getShadowToOriginalURI(string(params.URI))
@@ -114,7 +114,6 @@ func (l *LuaLS) ForwardRequest(method string, params interface{}) (interface{}, 
 	return result, err
 }
 
-// TODO: Provide a flag for user to set path to lua-language-server
 // findLuaLS attempts to find the lua-language-server binary
 // based on common installation paths
 func findLuaLS() (string, error) {

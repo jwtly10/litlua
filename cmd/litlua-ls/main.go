@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/jwtly10/litlua"
-	"github.com/jwtly10/litlua/internal/lsp"
-	"github.com/jwtly10/litlua/internal/lsp/server"
-	"github.com/sourcegraph/jsonrpc2"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/jwtly10/litlua"
+	"github.com/jwtly10/litlua/internal/lsp"
+	"github.com/jwtly10/litlua/internal/lsp/server"
+	"github.com/sourcegraph/jsonrpc2"
 )
 
 type stdRWC struct{}
@@ -73,7 +74,11 @@ func main() {
 	writer := lsp.NewWriter()
 
 	ctx := context.Background()
-	s, err := server.NewServer(parser, writer)
+
+	// TODO: Load options
+	o := server.Options{}
+
+	s, err := server.NewServer(parser, writer, o)
 	if err != nil {
 		slog.Error("failed to create server", "error", err)
 		return

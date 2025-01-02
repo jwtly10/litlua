@@ -3,17 +3,19 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/jwtly10/litlua"
-	iLsp "github.com/jwtly10/litlua/internal/lsp"
-	"github.com/sourcegraph/go-lsp"
-	"github.com/sourcegraph/jsonrpc2"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/google/uuid"
+	"github.com/jwtly10/litlua"
+	iLsp "github.com/jwtly10/litlua/internal/lsp"
+	"github.com/sourcegraph/go-lsp"
+	"github.com/sourcegraph/jsonrpc2"
 )
 
 type rwc struct {
@@ -45,7 +47,7 @@ type Server struct {
 	//shadowMap holds state of the mapping of the shadow file to the original markdown file
 	//
 	// e.g.
-	// shadow_file = file:///Users/personal/Projects/litlua/testdata/parser/basic_valid.md.lua
+	// shadow_file = file:///var/folders/8r/rkbmn5qd68jfvl9t6sn0szym0000gn/T/litlua-94e0a4e1-ae7d-4970-b94d-3b537c37d103/lsp_example.md.lua
 	//
 	// original    = file:///Users/personal/Projects/litlua/testdata/parser/basic_valid.md
 	shadowMap map[string]string // [shadowUrl]SourceUrl
@@ -57,7 +59,12 @@ type Server struct {
 	luaLS *LuaLS
 }
 
-func NewServer(parser *litlua.Parser, writer *iLsp.Writer) (*Server, error) {
+type Options struct {
+	LuaLsPath string
+	ShadowDir string
+}
+
+func NewServer(parser *litlua.Parser, writer *iLsp.Writer, options Options) (*Server, error) {
 	s := &Server{
 		documents: make(map[string]*litlua.Document),
 		shadowMap: make(map[string]string),
@@ -194,7 +201,6 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		// Process content changes
 		if len(params.ContentChanges) > 0 {
 			newContent := params.ContentChanges[0].Text
 			doc, shadowPath, err := s.processor.ProcessDocument(newContent, fileURI.Path, s.shadowRoot)
@@ -224,24 +230,99 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		// No content changes
 		return s.luaLS.ForwardRequest("textDocument/didChange", params)
 
-	case "textDocument/didClose":
-		var params lsp.DidCloseTextDocumentParams
+	case "textDocument/definition":
+		var params lsp.TextDocumentPositionParams
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
 			return nil, err
 		}
+
+		fileURI, err := url.Parse(string(params.TextDocument.URI))
+		if err != nil {
+			return nil, err
+		}
+
+		shadowURI := "file://" + iLsp.GetRawShadowPathFromMd(fileURI.Path, s.shadowRoot)
+		slog.Debug(shadowURI)
+		if _, exists := s.shadowMap[shadowURI]; !exists {
+			slog.Debug("text document URI", "path", string(params.TextDocument.URI))
+			slog.Debug("shadow uri", "path", shadowURI)
+			slog.Debug("state", "shadowMap", s.shadowMap)
+			return nil, fmt.Errorf("no shadow file found for %s (%s)", params.TextDocument.URI, shadowURI)
+		}
+
+		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
+		result, err := s.luaLS.ForwardRequest(req.Method, params)
+		if err != nil {
+			return nil, err
+		}
+
+		resultBytes, err := json.Marshal(result)
+		if err != nil {
+			return nil, err
+		}
+
+		var locationLinks []LocationLink
+		if err := json.Unmarshal(resultBytes, &locationLinks); err == nil {
+			for i := range locationLinks {
+				slog.Debug("locations[i].URI", "locations[i].URI", locationLinks[i].TargetURI)
+				if originalURI := s.getShadowToOriginalURI(string(locationLinks[i].TargetURI)); originalURI != "" {
+					slog.Debug("found original URI", "original_uri", originalURI)
+					locationLinks[i].TargetURI = lsp.DocumentURI(originalURI)
+				}
+			}
+			slog.Debug("received location link definition response", "result", result)
+			return locationLinks, nil
+		}
+
+		slog.Debug("received definition response that we could not parse", "result", result)
+		return nil, fmt.Errorf("unable to parse definition response")
+
+	case "textDocument/hover":
+		var params lsp.TextDocumentPositionParams
+		if err := json.Unmarshal(*req.Params, &params); err != nil {
+			return nil, err
+		}
+
+		fileURI, err := url.Parse(string(params.TextDocument.URI))
+		if err != nil {
+			return nil, err
+		}
+
+		shadowURI := "file://" + iLsp.GetRawShadowPathFromMd(fileURI.Path, s.shadowRoot)
+		if _, exists := s.shadowMap[shadowURI]; !exists {
+			return nil, fmt.Errorf("no shadow file found for %s", params.TextDocument.URI)
+		}
+
+		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
 		return s.luaLS.ForwardRequest(req.Method, params)
 
-	case "window/logMessage", "window/showMessage", "textDocument/publishDiagnostics":
-		slog.Debug("received notification from lua-ls", "method", req.Method, "params", req.Params)
+	case "textDocument/completion":
+		var params lsp.CompletionParams
+		if err := json.Unmarshal(*req.Params, &params); err != nil {
+			return nil, err
+		}
 
+		fileURI, err := url.Parse(string(params.TextDocument.URI))
+		if err != nil {
+			return nil, err
+		}
+
+		shadowURI := "file://" + iLsp.GetRawShadowPathFromMd(fileURI.Path, s.shadowRoot)
+		if _, exists := s.shadowMap[shadowURI]; !exists {
+			return nil, fmt.Errorf("no shadow file found for %s", params.TextDocument.URI)
+		}
+
+		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
+		return s.luaLS.ForwardRequest(req.Method, params)
+
+	// These are the LSP methods that don't require markdown-specific handling
+	// or we want to not throw errors when not implemented
+	case "window/logMessage", "window/showMessage", "textDocument/publishDiagnostics",
+		"textDocument/didClose", "textDocument/semanticTokens/full", "textDocument/semanticTokens/range",
+		"textDocument/documentColor", "textDocument/documentSymbol", "textDocument/codeLens",
+		"textDocument/foldingRange", "textDocument/codeAction", "textDocument/documentHighlight", "completionItem/resolve",
+		"textDocument/signatureHelp":
 		return s.luaLS.ForwardRequest(req.Method, req.Params)
-
-	case "textDocument/semanticTokens/full":
-		var params lsp.SemanticHighlightingTokens
-		if err := json.Unmarshal(*req.Params, &params); err != nil {
-			return nil, err
-		}
-		return s.luaLS.ForwardRequest(req.Method, params)
 
 	default:
 		slog.Warn("unknown method", "method", req.Method)
@@ -256,4 +337,25 @@ func (s *Server) SendDiagnostics(ctx context.Context, params lsp.PublishDiagnost
 
 func (s *Server) getShadowToOriginalURI(shadowURI string) string {
 	return s.shadowMap[shadowURI]
+}
+
+// https://github.com/sourcegraph/go-lsp does not support the LocationLink Type
+// so we have implemented it here for lua-language-server
+//
+// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#locationLink
+type LocationLink struct {
+	// Span of the origin of this link.
+	// Used as the underlined span for mouse interaction.
+	// Optional - defaults to the word range at the mouse position.
+	OriginSelectionRange *lsp.Range `json:"originSelectionRange,omitempty"`
+
+	// The target resource identifier of this link.
+	TargetURI lsp.DocumentURI `json:"targetUri"`
+
+	// The full target range including surrounding content like comments
+	TargetRange lsp.Range `json:"targetRange"`
+
+	// The precise range that should be selected when following the link
+	// Must be contained within TargetRange
+	TargetSelectionRange lsp.Range `json:"targetSelectionRange"`
 }
