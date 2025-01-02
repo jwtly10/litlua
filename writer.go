@@ -39,7 +39,7 @@ func (w *Writer) Write(doc *Document, now time.Time) error {
 		}
 	}
 
-	slog.Debug("Wrote document to output", "blocks", len(doc.Blocks), "source", doc.Metadata.Source, "output", doc.Pragmas.Output)
+	slog.Debug("wrote document to output", "blocks", len(doc.Blocks), "source", doc.Metadata.Source, "output", doc.Pragmas.Output)
 
 	return nil
 }

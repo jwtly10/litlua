@@ -123,7 +123,7 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 //
 // will not set the [Pragma] struct as the comments are not at the top of the file
 func (p *Parser) handleHTMLBlock(hb *ast.HTMLBlock, content []byte, hasWalkedOtherNodes *bool, doc *Document) error {
-	slog.Debug("Parsing html block", "hasWalkedOtherNodes", *hasWalkedOtherNodes)
+	slog.Debug("parsing html block", "hasWalkedOtherNodes", *hasWalkedOtherNodes)
 	if !*hasWalkedOtherNodes && hb.HTMLBlockType == ast.HTMLBlockType2 {
 		var buf bytes.Buffer
 		l := hb.Lines().Len()
@@ -167,7 +167,7 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 		},
 	}
 
-	slog.Debug("Parsed code block", "block", block)
+	slog.Debug("parsed code block", "block", block)
 
 	doc.Blocks = append(doc.Blocks, block)
 	return nil
@@ -185,18 +185,18 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 // Will return an error if the value cannot be parsed
 func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 	line = strings.TrimSpace(line)
-	slog.Debug("Parsing pragma line", "line", line)
+	slog.Debug("parsing pragma line", "line", line)
 
 	matches := pragmaRegex.FindStringSubmatch(line)
 	if len(matches) != 3 {
-		slog.Debug("Invalid pragma line", "line", line)
+		slog.Debug("invalid pragma line", "line", line)
 		return nil
 	}
 
 	key := matches[1]
 	value := matches[2]
 
-	slog.Debug("Parsed pragma key value pair", "key", key, "value", value)
+	slog.Debug("parsed pragma key value pair", "key", key, "value", value)
 
 	switch key {
 	case string(PragmaOutput):
@@ -208,7 +208,7 @@ func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 		}
 		pragma.Debug = b
 	default:
-		slog.Debug("Unknown pragma key", "key", key)
+		slog.Debug("unknown pragma key", "key", key)
 	}
 
 	return nil

@@ -38,7 +38,7 @@ func (bm *BackupManager) CreateBackup() (backupPath string, err error) {
 		return "", fmt.Errorf("creating backup: %w", err)
 	}
 
-	slog.Info("Output file already existed. Created a backup.", "backup", backupPath, "output", bm.path)
+	slog.Info("output file already existed. Created a backup.", "backup", backupPath, "output", bm.path)
 	return backupPath, nil
 }
 

@@ -1,3 +1,4 @@
 .idea/
 TODO.md
 *.bak
+*.md.lua
