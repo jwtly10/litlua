@@ -27,6 +27,7 @@ Current LSP methods support:
 - textDocument/signatureHelp
 - textDocument/completion
 - textDocument/definition
+- textDocument/didSave - (this will trigger a 'final' compilatoin to the pragma output file)
 
 LSP Features Planned in next version (v0.0.3):
 - textDocument/rename

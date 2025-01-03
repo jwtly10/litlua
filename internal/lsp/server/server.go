@@ -227,7 +227,13 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 
 		// No content changes
 		return s.luaLS.ForwardRequest("textDocument/didChange", params)
+	case "textDocument/didSave":
+		var params lsp.DidSaveTextDocumentParams
+		if err := json.Unmarshal(*req.Params, &params); err != nil {
+			return nil, err
+		}
 
+		return s.luaLS.ForwardRequest(req.Method, params)
 	case "textDocument/definition":
 		var params lsp.TextDocumentPositionParams
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
