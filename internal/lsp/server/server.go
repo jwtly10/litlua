@@ -313,18 +313,12 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
 		return s.luaLS.ForwardRequest(req.Method, params)
 
-	// These are the LSP methods that don't require markdown-specific handling
-	// or we want to not throw errors when not implemented
-	case "window/logMessage", "window/showMessage", "textDocument/publishDiagnostics",
-		"textDocument/didClose", "textDocument/semanticTokens/full", "textDocument/semanticTokens/range",
-		"textDocument/documentColor", "textDocument/documentSymbol", "textDocument/codeLens",
-		"textDocument/foldingRange", "textDocument/codeAction", "textDocument/documentHighlight", "completionItem/resolve",
-		"textDocument/signatureHelp":
-		return s.luaLS.ForwardRequest(req.Method, req.Params)
-
+	// Anything else is not specifically implemented through LitLua.
+	// We just proxy the request to the lua-language-server and accept partial support
+	// for anything undocumented as supported
 	default:
-		slog.Warn("unknown method", "method", req.Method)
-		return nil, &jsonrpc2.Error{Code: jsonrpc2.CodeMethodNotFound, Message: req.Method + " not found"}
+		//slog.Warn("unknown method", "method", req.Method)
+		return s.luaLS.ForwardRequest(req.Method, req.Params)
 	}
 
 }
