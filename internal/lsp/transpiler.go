@@ -6,16 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jwtly10/litlua"
 )
 
 type DocumentProcessor struct {
 	parser *litlua.Parser
-	writer *Writer
+	writer *litlua.Writer
 }
 
-func NewDocumentProcessor(parser *litlua.Parser, writer *Writer) *DocumentProcessor {
+func NewDocumentProcessor(parser *litlua.Parser, writer *litlua.Writer) *DocumentProcessor {
 	return &DocumentProcessor{
 		parser: parser,
 		writer: writer,
@@ -38,7 +39,13 @@ func (dp *DocumentProcessor) ProcessDocument(content, filePath, shadowRoot strin
 		return nil, "", fmt.Errorf("failed to generate shadow path: %w", err)
 	}
 
-	if err := dp.writer.WriteToPath(doc, shadowPath); err != nil {
+	f, err := os.Create(shadowPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create shadow file: %w", err)
+	}
+	defer f.Close()
+
+	if err := dp.writer.Write(doc, f, litlua.VERSION, time.Now()); err != nil {
 		return nil, "", fmt.Errorf("failed to write shadow file: %w", err)
 	}
 

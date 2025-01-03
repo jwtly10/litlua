@@ -3,12 +3,16 @@ package litlua
 import (
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/golden"
+	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestCanWriteGenHeaders(t *testing.T) {
+// TODO: Make this test actually write an entire file to a string.Builder, not just header
+func TestCanWriteToPrettyFile(t *testing.T) {
 	d := Document{
 		Metadata: MetaData{
 			Source: "test.md",
@@ -16,11 +20,11 @@ func TestCanWriteGenHeaders(t *testing.T) {
 	}
 
 	var output strings.Builder
-	w := NewWriter(&output)
+	w := NewWriter(ModePretty)
 
 	now := time.Now()
 
-	if err := w.Write(&d, now); err != nil {
+	if err := w.Write(&d, &output, "v0.0.2", now); err != nil {
 		t.Fatalf("Error writing document: %v", err)
 	}
 
@@ -34,4 +38,68 @@ func TestCanWriteGenHeaders(t *testing.T) {
 
 `, "test.md", now.Format(time.RFC3339))
 	require.Equal(t, expected, output.String())
+}
+
+func TestCanWriteToShadowFile(t *testing.T) {
+	slog.SetDefault(
+		slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})))
+
+	tests := []struct {
+		name       string
+		document   Document
+		goldenFile string
+	}{
+		{
+			name:       "can write document struct to lsp shadow file",
+			goldenFile: "lsp_shadow.golden.lua",
+			// This document is the parser output of testdata/parser/basic_valid.md
+			document: Document{
+				Metadata: MetaData{},
+				Pragmas: Pragma{
+					Output: "init.lua",
+					Debug:  true,
+				},
+				Blocks: []CodeBlock{
+					{
+						Code: "print(\"Hello World\")",
+						Position: Position{
+							StartLine: 10,
+							EndLine:   11,
+						},
+					},
+					{
+						Code: "print(\"Goodbye World\")\n",
+						Position: Position{
+							StartLine: 15,
+							EndLine:   17,
+						},
+					},
+					{
+						Code: "print(\"Goodbye World\")\n-- This is a multiline lua src",
+						Position: Position{
+							StartLine: 20,
+							EndLine:   22,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var output strings.Builder
+			lspWriter := NewWriter(ModeShadow)
+
+			if err := lspWriter.Write(&tt.document, &output, "v0.0.2", time.Now()); err != nil {
+				t.Fatalf("Error writing document: %v", err)
+			}
+
+			slog.Info(output.String())
+
+			golden.Assert(t, output.String(), tt.goldenFile)
+		})
+	}
 }

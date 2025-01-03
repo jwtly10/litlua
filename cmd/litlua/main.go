@@ -104,12 +104,11 @@ func main() {
 	defer out.Close()
 
 	now := time.Now()
-	writer := litlua.NewWriter(out)
-	if err := writer.Write(doc, now); err != nil {
+	writer := litlua.NewWriter(litlua.ModePretty)
+	if err := writer.Write(doc, out, litlua.VERSION, now); err != nil {
 		fmt.Printf("Error writing output: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("✨ Successfully wrote output to %s\n", litlua.MustAbs(outPath))
-
 }

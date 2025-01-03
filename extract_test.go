@@ -46,8 +46,8 @@ func TestCanHandleExtractingDataFromFiles(t *testing.T) {
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
-			writer := NewWriter(&buf)
-			err = writer.Write(doc, tt.fixedTime)
+			writer := NewWriter(ModePretty)
+			err = writer.Write(doc, &buf, "v0.0.2", tt.fixedTime)
 			require.NoError(t, err)
 
 			golden.Assert(t, buf.String(), fmt.Sprintf("extract/%s.golden.lua", tt.inFile))

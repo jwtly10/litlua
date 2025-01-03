@@ -50,7 +50,7 @@ type Server struct {
 	// original    = file:///Users/personal/Projects/litlua/testdata/parser/basic_valid.md
 	shadowMap map[string]string // [shadow_file]original
 	parser    *litlua.Parser
-	writer    *iLsp.Writer
+	lspWriter *litlua.Writer
 
 	processor *iLsp.DocumentProcessor
 
@@ -62,14 +62,14 @@ type Options struct {
 	ShadowDir string
 }
 
-func NewServer(parser *litlua.Parser, writer *iLsp.Writer, options Options) (*Server, error) {
+func NewServer(parser *litlua.Parser, lspWriter *litlua.Writer, options Options) (*Server, error) {
 	s := &Server{
 		documents: make(map[string]*litlua.Document),
 		shadowMap: make(map[string]string),
 		parser:    parser,
-		writer:    writer,
+		lspWriter: lspWriter,
 
-		processor: iLsp.NewDocumentProcessor(parser, writer),
+		processor: iLsp.NewDocumentProcessor(parser, lspWriter),
 	}
 
 	// litlua-workspace is the default shadow directory

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/jwtly10/litlua"
-	"github.com/jwtly10/litlua/internal/lsp"
 	"github.com/jwtly10/litlua/internal/lsp/server"
 	"github.com/sourcegraph/jsonrpc2"
 )
@@ -71,14 +70,14 @@ func main() {
 	slog.Info("starting litlua-ls", "logfile", logFile.Name())
 
 	parser := litlua.NewParser()
-	writer := lsp.NewWriter()
+	lspWriter := litlua.NewWriter(litlua.ModeShadow)
 
 	ctx := context.Background()
 
 	// TODO: Properly configure options
 	o := server.Options{}
 
-	s, err := server.NewServer(parser, writer, o)
+	s, err := server.NewServer(parser, lspWriter, o)
 	if err != nil {
 		slog.Error("failed to create server", "error", err)
 		return
