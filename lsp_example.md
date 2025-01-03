@@ -48,8 +48,12 @@ Typical LSP methods are supported, such as the below, LitLua supports
 - Completion (complete function names)
 
 ```lua
+-- Bar is a function that adds two numbers
+--
 -- @param a number
+--
 -- @param b number
+--
 -- @return number sum of a and b
 Bar = function(a, b)
     return a + b

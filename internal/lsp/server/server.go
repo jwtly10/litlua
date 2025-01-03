@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/google/uuid"
 	"github.com/jwtly10/litlua"
 	iLsp "github.com/jwtly10/litlua/internal/lsp"
 	"github.com/sourcegraph/go-lsp"
@@ -46,11 +45,10 @@ type Server struct {
 
 	//shadowMap holds state of the mapping of the shadow file to the original markdown file
 	//
-	// e.g.
-	// shadow_file = file:///var/folders/8r/rkbmn5qd68jfvl9t6sn0szym0000gn/T/litlua-94e0a4e1-ae7d-4970-b94d-3b537c37d103/lsp_example.md.lua
-	//
+	// e.g. (note the 'real' paths are actually subpaths of the shadowRoot, to more accurately represent the real workspace)
+	// shadow_file = file:///var/folders/8r/rkbmn5qd68jfvl9t6sn0szym0000gn/T/litlua-3b322857-7b53-4596-969e-f59744f21559/Users/personal/Projects/litlua/lsp_example.md.lua
 	// original    = file:///Users/personal/Projects/litlua/testdata/parser/basic_valid.md
-	shadowMap map[string]string // [shadowUrl]SourceUrl
+	shadowMap map[string]string // [shadow_file]original
 	parser    *litlua.Parser
 	writer    *iLsp.Writer
 
@@ -74,8 +72,8 @@ func NewServer(parser *litlua.Parser, writer *iLsp.Writer, options Options) (*Se
 		processor: iLsp.NewDocumentProcessor(parser, writer),
 	}
 
-	tmpDir := filepath.Join(os.TempDir(), "litlua-"+uuid.New().String())
-	s.shadowRoot = tmpDir
+	// litlua-workspace is the default shadow directory
+	s.shadowRoot = filepath.Join(os.TempDir(), "litlua-workspace")
 
 	// Just make sure we clean up the shadow files
 	runtime.SetFinalizer(s, func(s *Server) {
@@ -339,10 +337,11 @@ func (s *Server) getShadowToOriginalURI(shadowURI string) string {
 	return s.shadowMap[shadowURI]
 }
 
+// LocationLink is an implementation of the LocationLink LSP type
+// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#locationLink
+//
 // https://github.com/sourcegraph/go-lsp does not support the LocationLink Type
 // so we have implemented it here for lua-language-server
-//
-// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#locationLink
 type LocationLink struct {
 	// Span of the origin of this link.
 	// Used as the underlined span for mouse interaction.

@@ -75,7 +75,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// TODO: Load options
+	// TODO: Properly configure options
 	o := server.Options{}
 
 	s, err := server.NewServer(parser, writer, o)
