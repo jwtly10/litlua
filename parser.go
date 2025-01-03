@@ -26,10 +26,9 @@ func NewParser() *Parser {
 	}
 }
 
-// TODO: Refactor docs
-
-// ParseMarkdownDoc parses a markdown document into its constituent parts
-// see [TODO](TODO) for more information on the structure of the document
+// ParseMarkdownDoc parses Markdown content into a document
+//
+// It pulls out compilation pragmas and lua code blocks from the content and returns a [Document]
 func (p *Parser) ParseMarkdownDoc(r io.Reader, md MetaData) (*Document, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
@@ -159,8 +158,8 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 
 	block := CodeBlock{
 		// We trim the last \n since the md parsing always appends a newline, even when not needed
-		Code:   trimNewline(buf.String()),
-		Source: doc.Metadata.Source,
+		Code:   buf.String(),
+		Source: doc.Metadata.AbsSource,
 		Position: Position{
 			startLine,
 			endLine,
@@ -212,12 +211,4 @@ func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 	}
 
 	return nil
-}
-
-// trimNewline trims the newline character from the end of a string
-func trimNewline(s string) string {
-	if strings.HasSuffix(s, "\n") {
-		return s[:len(s)-1]
-	}
-	return s
 }

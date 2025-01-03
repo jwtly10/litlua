@@ -3,7 +3,6 @@ package litlua
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"time"
 )
@@ -13,33 +12,29 @@ import (
 // This is a short term solution to ensuring that the output file is not overwritten
 // by accident.
 type BackupManager struct {
-	path string
 }
 
-func NewBackupManager(path string) *BackupManager {
-	return &BackupManager{
-		path: path,
-	}
+func NewBackupManager() *BackupManager {
+	return &BackupManager{}
 }
 
-// CreateBackup creates a backup of the output file if it already exists
+// CreateBackupOf creates a backup of an absolute file path if it already exists
 //
-// Returns the path to the backup file, or an empty string if no backup was created
-func (bm *BackupManager) CreateBackup() (backupPath string, err error) {
-	if _, err := os.Stat(bm.path); os.IsNotExist(err) {
+// Returns the abs path to the backup file, or an empty string if no backup was created
+func (bm *BackupManager) CreateBackupOf(absFilePath string) (absBackedUpFile string, err error) {
+	if _, err := os.Stat(absFilePath); os.IsNotExist(err) {
 		return "", nil
 	} else if err != nil {
 		return "", fmt.Errorf("checking file existence: %w", err)
 	}
 
-	backupPath = fmt.Sprintf("%s.%s.bak", bm.path, time.Now().Format("20060102_150405"))
+	absBackedUpFile = fmt.Sprintf("%s.%s.bak", absFilePath, time.Now().Format("20060102_150405"))
 
-	if err := bm.copyFile(bm.path, backupPath); err != nil {
+	if err := bm.copyFile(absFilePath, absBackedUpFile); err != nil {
 		return "", fmt.Errorf("creating backup: %w", err)
 	}
 
-	slog.Info("output file already existed. Created a backup.", "backup", backupPath, "output", bm.path)
-	return backupPath, nil
+	return absBackedUpFile, nil
 }
 
 func (bm *BackupManager) copyFile(src, dst string) error {

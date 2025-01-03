@@ -11,11 +11,18 @@ import (
 	"time"
 )
 
-// TODO: Make this test actually write an entire file to a string.Builder, not just header
 func TestCanWriteToPrettyFile(t *testing.T) {
 	d := Document{
 		Metadata: MetaData{
-			Source: "test.md",
+			AbsSource: "test.md",
+		},
+		Blocks: []CodeBlock{
+			{
+				Code: "print(\"Hello World\")",
+			},
+			{
+				Code: "print(\"Goodbye World\")\n",
+			},
 		},
 	}
 
@@ -24,7 +31,16 @@ func TestCanWriteToPrettyFile(t *testing.T) {
 
 	now := time.Now()
 
-	if err := w.Write(&d, &output, "v0.0.2", now); err != nil {
+	metadata := WriterMetadata{
+		Version:   "v0.0.2",
+		AbsSource: d.Metadata.AbsSource,
+		Generated: time.Now().Format(time.RFC3339),
+	}
+
+	if err := w.WriteHeader(&output, metadata); err != nil {
+		t.Fatalf("Error writing document: %v", err)
+	}
+	if err := w.WriteContent(&d, &output); err != nil {
 		t.Fatalf("Error writing document: %v", err)
 	}
 
@@ -35,6 +51,9 @@ func TestCanWriteToPrettyFile(t *testing.T) {
 -- WARNING: This is an auto-generated file.
 -- Do not modify this file directly as changes will be overwritten on next compilation.
 -- Instead, modify the source markdown file and recompile.
+
+print("Hello World")
+print("Goodbye World")
 
 `, "test.md", now.Format(time.RFC3339))
 	require.Equal(t, expected, output.String())
@@ -93,7 +112,7 @@ func TestCanWriteToShadowFile(t *testing.T) {
 			var output strings.Builder
 			lspWriter := NewWriter(ModeShadow)
 
-			if err := lspWriter.Write(&tt.document, &output, "v0.0.2", time.Now()); err != nil {
+			if err := lspWriter.WriteContent(&tt.document, &output); err != nil {
 				t.Fatalf("Error writing document: %v", err)
 			}
 

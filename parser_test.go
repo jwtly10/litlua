@@ -20,7 +20,7 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 			srcFile: "testdata/parser/basic_valid.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/parser/basic_valid.md",
+					AbsSource: "testdata/parser/basic_valid.md",
 				},
 				Pragmas: Pragma{
 					Output: "init.lua",
@@ -28,7 +28,7 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 				},
 				Blocks: []CodeBlock{
 					{
-						Code:   "print(\"Hello World\")",
+						Code:   "print(\"Hello World\")\n",
 						Source: "testdata/parser/basic_valid.md",
 						Position: Position{
 							StartLine: 10,
@@ -36,7 +36,7 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 						},
 					},
 					{
-						Code:   "print(\"Goodbye World\")\n",
+						Code:   "print(\"Goodbye World\")\n\n",
 						Source: "testdata/parser/basic_valid.md",
 						Position: Position{
 							StartLine: 15,
@@ -44,7 +44,7 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 						},
 					},
 					{
-						Code:   "print(\"Goodbye World\")\n-- This is a multiline lua src",
+						Code:   "print(\"Goodbye World\")\n-- This is a multiline lua src\n",
 						Source: "testdata/parser/basic_valid.md",
 						Position: Position{
 							StartLine: 20,
@@ -59,12 +59,12 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 			srcFile: "testdata/parser/basic_invalid.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/parser/basic_invalid.md",
+					AbsSource: "testdata/parser/basic_invalid.md",
 				},
 				Pragmas: Pragma{},
 				Blocks: []CodeBlock{
 					{
-						Code:   "print(\"Hello World\")",
+						Code:   "print(\"Hello World\")\n",
 						Source: "testdata/parser/basic_invalid.md",
 						Position: Position{
 							StartLine: 11,
@@ -72,7 +72,7 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 						},
 					},
 					{
-						Code:   "print(\"Goodbye World\")\n",
+						Code:   "print(\"Goodbye World\")\n\n",
 						Source: "testdata/parser/basic_invalid.md",
 						Position: Position{
 							StartLine: 15,
@@ -87,7 +87,7 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 			srcFile: "testdata/parser/no_lua.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/parser/no_lua.md",
+					AbsSource: "testdata/parser/no_lua.md",
 				},
 				Pragmas: Pragma{},
 				Blocks:  []CodeBlock{},

@@ -58,7 +58,7 @@ func main() {
 			AddSource: true,
 		})
 	} else {
-		handler = slog.NewTextHandler(logFile, &slog.HandlerOptions{
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 			Level:     slog.LevelInfo,
 			AddSource: true,
 		})

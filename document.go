@@ -12,8 +12,8 @@ type Document struct {
 }
 
 type MetaData struct {
-	// The source file path
-	Source string
+	// The absolute file path of the markdown source file
+	AbsSource string
 }
 
 type PragmaKey string
