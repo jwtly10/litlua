@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/jwtly10/litlua"
+	iLsp "github.com/jwtly10/litlua/internal/lsp"
+	"github.com/sourcegraph/go-lsp"
+	"github.com/sourcegraph/jsonrpc2"
 	"io"
 	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
-
-	"github.com/jwtly10/litlua"
-	iLsp "github.com/jwtly10/litlua/internal/lsp"
-	"github.com/sourcegraph/go-lsp"
-	"github.com/sourcegraph/jsonrpc2"
+	"sync"
 )
 
 type rwc struct {
@@ -52,7 +52,11 @@ type Server struct {
 	parser    *litlua.Parser
 	lspWriter *litlua.Writer
 
+	cancelMap sync.Map // tracks canceled request IDs
+
 	processor *iLsp.DocumentProcessor
+
+	trackRequestCount sync.Map
 
 	luaLS *LuaLS
 }
@@ -96,6 +100,16 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		s.conn = conn
 	}
 	slog.Info("received request", "method", req.Method, "id", req.ID)
+	reqCount, _ := s.trackRequestCount.LoadOrStore(req.Method, 1)
+	if count, ok := reqCount.(int); ok {
+		s.trackRequestCount.Store(req.Method, count+1)
+	}
+
+	if _, ok := s.cancelMap.Load(req.ID.String()); ok {
+		slog.Debug("request was canceled", "id", req.ID)
+		s.cancelMap.Delete(req.ID.String())
+		return nil, nil
+	}
 
 	switch req.Method {
 	case "initialize":
@@ -134,10 +148,13 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		if err := os.RemoveAll(s.shadowRoot); err != nil {
 			slog.Error("failed to remove shadow workspace", "error", err)
 		}
+
+		s.printDebugStats()
+
 		return nil, nil
 	case "exit":
 		slog.Info("exiting")
-		// here we can handle cleaning up of the tmp files
+
 		os.Exit(0)
 		return nil, nil
 
@@ -318,6 +335,14 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 
 		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
 		return s.luaLS.ForwardRequest(req.Method, params)
+	case "$/cancelRequest":
+		var params lsp.CancelParams
+		if err := json.Unmarshal(*req.Params, &params); err != nil {
+			return nil, err
+		}
+		slog.Debug("canceling request", "id", params.ID)
+		s.cancelMap.Store(params.ID.String(), struct{}{})
+		return nil, nil
 
 	// Anything else is not specifically implemented through LitLua.
 	// We just proxy the request to the lua-language-server and accept partial support
@@ -335,6 +360,14 @@ func (s *Server) SendDiagnostics(ctx context.Context, params lsp.PublishDiagnost
 
 func (s *Server) getShadowToOriginalURI(shadowURI string) string {
 	return s.shadowMap[shadowURI]
+}
+
+func (s *Server) printDebugStats() {
+	s.trackRequestCount.Range(func(key, value interface{}) bool {
+		msg := fmt.Sprintf("Method: %-30s Count: %d", key.(string), value.(int))
+		slog.Debug(msg)
+		return true
+	})
 }
 
 // LocationLink is an implementation of the LocationLink LSP type
