@@ -1,4 +1,4 @@
-# LitLua v0.0.1
+# LitLua v0.0.2
 
 LitLua is a literate programming tool inspired by Emacs designed to support better formating of lua based configuration. It enables you to write and maintain well-documented Lua configurations by transforming literate Markdown docs into executable Lua code.
 
