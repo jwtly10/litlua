@@ -36,8 +36,6 @@ type Server struct {
 	conn *jsonrpc2.Conn
 	// lua lsp interface
 	luaLS *LuaLS
-	// tracks canceled request IDs
-	cancelMap sync.Map
 
 	// tracking for method request counts
 	trackRequestCount sync.Map
@@ -92,15 +90,10 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		s.conn = conn
 	}
 	slog.Info("received request", "method", req.Method, "id", req.ID)
+
 	reqCount, _ := s.trackRequestCount.LoadOrStore(req.Method, 1)
 	if count, ok := reqCount.(int); ok {
 		s.trackRequestCount.Store(req.Method, count+1)
-	}
-
-	if _, ok := s.cancelMap.Load(req.ID.String()); ok {
-		slog.Debug("request was canceled", "id", req.ID)
-		s.cancelMap.Delete(req.ID.String())
-		return nil, nil
 	}
 
 	switch req.Method {
@@ -299,15 +292,13 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 
 		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
 		return s.luaLS.ForwardRequest(req.Method, params)
-	case "$/cancelRequest":
-		var params lsp.CancelParams
-		if err := json.Unmarshal(*req.Params, &params); err != nil {
-			return nil, err
-		}
-		slog.Debug("canceling request", "id", params.ID)
-		s.cancelMap.Store(params.ID.String(), struct{}{})
-		return nil, nil
 
+	// There are some methods we want to ignore, as they are not implemented
+	// and cause overheard when proxying to the lua-language-server
+	case "$/cancelRequest", "textDocument/documentHighlight", "textDocument/documentSymbol", "textDocument/foldingRange",
+		"textDocument/documentColor", "textDocument/codeLens", "textDocument/codeAction", "textDocument/semanticTokens/range",
+		"textDocument/semanticTokens/full", "$/setTrace":
+		return nil, nil
 	// Anything else is not specifically implemented through LitLua.
 	// We just proxy the request to the lua-language-server and accept partial support
 	// for anything undocumented as supported
@@ -327,6 +318,7 @@ func (s *Server) getShadowToOriginalURI(shadowURI string) (string, bool) {
 }
 
 func (s *Server) printDebugStats() {
+	slog.Debug("request counts")
 	s.trackRequestCount.Range(func(key, value interface{}) bool {
 		msg := fmt.Sprintf("Method: %-30s Count: %d", key.(string), value.(int))
 		slog.Debug(msg)
