@@ -108,7 +108,9 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 		if doc.Pragmas.Output == "" {
 			return "", fmt.Errorf("pragma key 'output' is required for transformation")
 		}
-		absTransformPath = filepath.Join(filepath.Dir(input.Metadata.AbsSource), doc.Pragmas.Output)
+		// append .lua to output file if not already present
+		clean := strings.TrimSuffix(doc.Pragmas.Output, ".lua")
+		absTransformPath = filepath.Join(filepath.Dir(input.Metadata.AbsSource), clean+".lua")
 	} else {
 		absTransformPath, err = resolveTransformToAbsPath(input.Metadata.AbsSource, doc.Pragmas)
 		if err != nil {
@@ -163,6 +165,8 @@ func resolveTransformToAbsPath(absSrcPath string, pragma litlua.Pragma) (string,
 		return strings.TrimSuffix(absSrcPath, filepath.Ext(absSrcPath)) + ".lua", nil
 	}
 
+	// append .lua to output file if not already present
+	clean := strings.TrimSuffix(pragma.Output, ".lua")
 	mdDir := filepath.Dir(absSrcPath)
-	return filepath.Join(mdDir, pragma.Output), nil
+	return filepath.Join(mdDir, clean+".lua"), nil
 }
