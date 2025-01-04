@@ -107,7 +107,7 @@ func TestTransformer(t *testing.T) {
 				require.Contains(t, string(content), "local a = y\nprint(a)")
 				require.Contains(t, string(content), "-- Bar is a function that adds two numbers\n--\n-- @param a number\n--\n-- @param b number\n--\n-- @return number sum of a and b\nBar = function(a, b)\n    return a + b\nend\n\n-- You can go to definition of bar by clicking on it\nprint(Bar(10, 11))\n\n-- try typing B in this print function and see the completion\nprint(...)")
 			},
-			wantErr: "pragma output is required for transformation",
+			wantErr: "pragma key 'output' is required for transformation",
 		},
 	}
 
@@ -133,6 +133,26 @@ func TestTransformer(t *testing.T) {
 				Metadata: litlua.MetaData{
 					AbsSource: mdPath,
 				},
+			}
+
+			if tt.opts.WriterMode == litlua.ModeShadow {
+				shadowPath := filepath.Join(dir.path, tt.inputFile+".lua")
+				src.Metadata.AbsSource = shadowPath
+
+				outputPath, err := transformer.TransformToPath(src, shadowPath)
+				if tt.wantErr != "" {
+					if err == nil {
+						t.Fatalf("expected error: %s, got nil", tt.wantErr)
+					}
+					require.Equal(t, tt.wantErr, err.Error())
+					return
+				}
+				require.NoError(t, err)
+
+				fmt.Printf("output path: %s", outputPath)
+
+				tt.validate(t, outputPath)
+				return
 			}
 
 			outputPath, err := transformer.Transform(src)

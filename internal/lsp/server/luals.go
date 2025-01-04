@@ -87,8 +87,8 @@ func (l *LuaLS) HandleResponse(ctx context.Context, conn *jsonrpc2.Conn, req *js
 		}
 
 		// Get the markdown file this diagnostic is for
-		originalURI := l.server.(*Server).getShadowToOriginalURI(string(params.URI))
-		if originalURI == "" {
+		originalURI, exists := l.server.(*Server).getShadowToOriginalURI(string(params.URI))
+		if !exists {
 			slog.Error("failed to map shadow URI", "uri", params.URI)
 			return nil, fmt.Errorf("no mapping for shadow URI: %s", params.URI)
 		}

@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"github.com/jwtly10/litlua"
 	iLsp "github.com/jwtly10/litlua/internal/lsp"
+	"github.com/jwtly10/litlua/internal/transformer"
 	"github.com/sourcegraph/go-lsp"
 	"github.com/sourcegraph/jsonrpc2"
 	"io"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 )
 
@@ -35,56 +34,49 @@ func (rw rwc) Close() error {
 
 type Server struct {
 	conn *jsonrpc2.Conn
+	// lua lsp interface
+	luaLS *LuaLS
+	// tracks canceled request IDs
+	cancelMap sync.Map
 
-	documents map[string]*litlua.Document
-
-	// shadowRoot is the root directory for shadow files
-	// e.g. /tmp/litlua
-	// this is to hide the intermediate compiled lua files from the user
-	shadowRoot string
-
-	//shadowMap holds state of the mapping of the shadow file to the original markdown file
-	//
-	// e.g. (note the 'real' paths are actually subpaths of the shadowRoot, to more accurately represent the real workspace)
-	// shadow_file = file:///var/folders/8r/rkbmn5qd68jfvl9t6sn0szym0000gn/T/litlua-3b322857-7b53-4596-969e-f59744f21559/Users/personal/Projects/litlua/lsp_example.md.lua
-	// original    = file:///Users/personal/Projects/litlua/testdata/parser/basic_valid.md
-	shadowMap map[string]string // [shadow_file]original
-	parser    *litlua.Parser
-	lspWriter *litlua.Writer
-
-	cancelMap sync.Map // tracks canceled request IDs
-
-	processor *iLsp.DocumentProcessor
-
+	// tracking for method request counts
 	trackRequestCount sync.Map
 
-	luaLS *LuaLS
+	// abstraction for transpiling operations
+	docService *iLsp.DocumentService
 }
 
 type Options struct {
-	LuaLsPath string
-	ShadowDir string
+	LuaLsPath  string
+	DocService iLsp.DocumentServiceOptions
 }
 
-func NewServer(parser *litlua.Parser, lspWriter *litlua.Writer, options Options) (*Server, error) {
-	s := &Server{
-		documents: make(map[string]*litlua.Document),
-		shadowMap: make(map[string]string),
-		parser:    parser,
-		lspWriter: lspWriter,
+var DefaultServerOptions = Options{
+	LuaLsPath: filepath.Join(os.TempDir(), "litlua-workspace"),
+	DocService: iLsp.DocumentServiceOptions{
+		ShadowRoot: filepath.Join(os.TempDir(), "litlua-workspace"),
+		ShadowTransformerOpts: transformer.TransformOptions{
+			WriterMode:          litlua.ModeShadow,
+			NoBackup:            true,
+			RequirePragmaOutput: false,
+		},
+		FinalTransformerOpts: transformer.TransformOptions{
+			WriterMode:          litlua.ModePretty,
+			NoBackup:            false,
+			RequirePragmaOutput: true,
+		},
+	},
+}
 
-		processor: iLsp.NewDocumentProcessor(parser, lspWriter),
+func NewServer(options Options) (*Server, error) {
+	dService, err := iLsp.NewDocumentService(options.DocService)
+	if err != nil {
+		return nil, err
 	}
 
-	// litlua-workspace is the default shadow directory
-	s.shadowRoot = filepath.Join(os.TempDir(), "litlua-workspace")
-
-	// Just make sure we clean up the shadow files
-	runtime.SetFinalizer(s, func(s *Server) {
-		if err := os.RemoveAll(s.shadowRoot); err != nil {
-			slog.Error("failed to cleanup shadow files", "error", err)
-		}
-	})
+	s := &Server{
+		docService: dService,
+	}
 
 	l, err := NewLuaLs(s)
 	if err != nil {
@@ -120,8 +112,8 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		initParams.RootPath = s.shadowRoot
-		initParams.RootURI = lsp.DocumentURI("file://" + s.shadowRoot)
+		initParams.RootPath = s.docService.ShadowRoot()
+		initParams.RootURI = lsp.DocumentURI("file://" + s.docService.ShadowRoot())
 
 		result, err := s.luaLS.ForwardRequest(req.Method, initParams)
 		if err != nil {
@@ -145,7 +137,8 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		return s.luaLS.ForwardRequest(req.Method, params)
 	case "shutdown":
 		slog.Info("shutting down")
-		if err := os.RemoveAll(s.shadowRoot); err != nil {
+
+		if err := s.docService.CleanupShadowFiles(); err != nil {
 			slog.Error("failed to remove shadow workspace", "error", err)
 		}
 
@@ -166,29 +159,17 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		// fileURI wraps the URI of the file the LSP req are triggered by in an url.URL object
-		// .String() gives us the full URI as required by the LSP spec
-		// .Path gives us access to the raw 'absolute' path of the URI without file://
-		// so we can easily do file system operations
-		fileURI, err := url.Parse(string(params.TextDocument.URI))
+		shadowURI, err := s.docService.TransformShadowDoc(params.TextDocument.Text, params.TextDocument.URI)
 		if err != nil {
 			return nil, err
 		}
 
-		doc, shadowPath, err := s.processor.ProcessDocument(params.TextDocument.Text, fileURI.Path, s.shadowRoot)
+		fsPath, err := s.docService.URIToPath(lsp.DocumentURI(shadowURI))
 		if err != nil {
 			return nil, err
 		}
 
-		// TODO: is this the best way to track the doc? Or should we just compile when needed?
-		s.documents[fileURI.String()] = doc
-
-		shadowURI := "file://" + shadowPath
-		s.shadowMap[shadowURI] = fileURI.String()
-
-		slog.Debug("transpiled document to shadow file", "shadow_path", shadowPath, "shadow_uri", shadowURI)
-
-		content, err := os.ReadFile(shadowPath)
+		content, err := os.ReadFile(fsPath)
 		if err != nil {
 			return nil, err
 		}
@@ -211,20 +192,20 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		fileURI, err := url.Parse(string(params.TextDocument.URI))
-		if err != nil {
-			return nil, err
-		}
-
 		if len(params.ContentChanges) > 0 {
 			newContent := params.ContentChanges[0].Text
-			doc, shadowPath, err := s.processor.ProcessDocument(newContent, fileURI.Path, s.shadowRoot)
+
+			shadowURI, err := s.docService.TransformShadowDoc(newContent, params.TextDocument.URI)
 			if err != nil {
 				return nil, err
 			}
-			s.documents[fileURI.String()] = doc
 
-			content, err := os.ReadFile(shadowPath)
+			fsPath, err := s.docService.URIToPath(lsp.DocumentURI(shadowURI))
+			if err != nil {
+				return nil, err
+			}
+
+			content, err := os.ReadFile(fsPath)
 			if err != nil {
 				return nil, err
 			}
@@ -237,7 +218,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 					},
 				},
 			}
-			newParams.TextDocument.URI = lsp.DocumentURI("file://" + shadowPath)
+			newParams.TextDocument.URI = lsp.DocumentURI(shadowURI)
 
 			return s.luaLS.ForwardRequest("textDocument/didChange", newParams)
 		}
@@ -257,18 +238,9 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		fileURI, err := url.Parse(string(params.TextDocument.URI))
-		if err != nil {
-			return nil, err
-		}
-
-		shadowURI := "file://" + iLsp.GetRawShadowPathFromMd(fileURI.Path, s.shadowRoot)
-		slog.Debug(shadowURI)
-		if _, exists := s.shadowMap[shadowURI]; !exists {
-			slog.Debug("text document URI", "path", string(params.TextDocument.URI))
-			slog.Debug("shadow uri", "path", shadowURI)
-			slog.Debug("state", "shadowMap", s.shadowMap)
-			return nil, fmt.Errorf("no shadow file found for %s (%s)", params.TextDocument.URI, shadowURI)
+		shadowURI, exists := s.docService.ShadowURI(string(params.TextDocument.URI))
+		if !exists {
+			return nil, fmt.Errorf("no shadow file found for %s", params.TextDocument.URI)
 		}
 
 		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
@@ -286,9 +258,11 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		if err := json.Unmarshal(resultBytes, &locationLinks); err == nil {
 			for i := range locationLinks {
 				slog.Debug("locations[i].URI", "locations[i].URI", locationLinks[i].TargetURI)
-				if originalURI := s.getShadowToOriginalURI(string(locationLinks[i].TargetURI)); originalURI != "" {
-					slog.Debug("found original URI", "original_uri", originalURI)
+				originalURI, exists := s.getShadowToOriginalURI(string(locationLinks[i].TargetURI))
+				if exists {
 					locationLinks[i].TargetURI = lsp.DocumentURI(originalURI)
+				} else {
+					slog.Debug("unable to find original URI for shadow URI", "shadowURI", locationLinks[i].TargetURI)
 				}
 			}
 			slog.Debug("received location link definition response", "result", result)
@@ -304,13 +278,8 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		fileURI, err := url.Parse(string(params.TextDocument.URI))
-		if err != nil {
-			return nil, err
-		}
-
-		shadowURI := "file://" + iLsp.GetRawShadowPathFromMd(fileURI.Path, s.shadowRoot)
-		if _, exists := s.shadowMap[shadowURI]; !exists {
+		shadowURI, exists := s.docService.ShadowURI(string(params.TextDocument.URI))
+		if !exists {
 			return nil, fmt.Errorf("no shadow file found for %s", params.TextDocument.URI)
 		}
 
@@ -323,13 +292,8 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		fileURI, err := url.Parse(string(params.TextDocument.URI))
-		if err != nil {
-			return nil, err
-		}
-
-		shadowURI := "file://" + iLsp.GetRawShadowPathFromMd(fileURI.Path, s.shadowRoot)
-		if _, exists := s.shadowMap[shadowURI]; !exists {
+		shadowURI, exists := s.docService.ShadowURI(string(params.TextDocument.URI))
+		if !exists {
 			return nil, fmt.Errorf("no shadow file found for %s", params.TextDocument.URI)
 		}
 
@@ -358,8 +322,8 @@ func (s *Server) SendDiagnostics(ctx context.Context, params lsp.PublishDiagnost
 	return s.conn.Notify(ctx, "textDocument/publishDiagnostics", params)
 }
 
-func (s *Server) getShadowToOriginalURI(shadowURI string) string {
-	return s.shadowMap[shadowURI]
+func (s *Server) getShadowToOriginalURI(shadowURI string) (string, bool) {
+	return s.docService.OriginalURI(shadowURI)
 }
 
 func (s *Server) printDebugStats() {
