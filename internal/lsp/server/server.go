@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -340,7 +341,18 @@ func (s *Server) SendDiagnostics(ctx context.Context, params lsp.PublishDiagnost
 }
 
 func (s *Server) getShadowToOriginalURI(shadowURI string) (string, bool) {
-	return s.docService.OriginalURI(shadowURI)
+	// On macOS a temp dir with /var is symlinked to /private/var
+	// which fails a lookup since they don't match what we store in the map
+
+	path := strings.TrimPrefix(shadowURI, "file:///")
+	path = strings.TrimPrefix(path, "private/")
+	normalizedURI := "file:///" + path
+
+	slog.Debug("URI normalization",
+		"original", shadowURI,
+		"normalized", normalizedURI)
+
+	return s.docService.OriginalURI(normalizedURI)
 }
 
 func (s *Server) printDebugStats() {
