@@ -83,6 +83,37 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 			},
 		},
 		{
+			name:    "test parse file with empty lua blocks",
+			srcFile: "testdata/parser/empty_lua.md",
+			document: Document{
+				Metadata: MetaData{
+					AbsSource: "testdata/parser/empty_lua.md",
+				},
+				Pragmas: Pragma{
+					Output: "init.lua",
+					Debug:  true,
+				},
+				Blocks: []CodeBlock{
+					{
+						Code:   "print(\"Hello World\")\n",
+						Source: "testdata/parser/empty_lua.md",
+						Position: Position{
+							StartLine: 5,
+							EndLine:   6,
+						},
+					},
+					{
+						Code:   "\n",
+						Source: "testdata/parser/empty_lua.md",
+						Position: Position{
+							StartLine: 8,
+							EndLine:   9,
+						},
+					},
+				},
+			},
+		},
+		{
 			name:    "test fail to parse file with no lua",
 			srcFile: "testdata/parser/no_lua.md",
 			document: Document{

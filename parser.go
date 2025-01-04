@@ -40,9 +40,9 @@ func (p *Parser) ParseMarkdownDoc(r io.Reader, md MetaData) (*Document, error) {
 	}
 
 	hasWalkedOtherNodes := false
-	ast := p.gm.Parser().Parse(text.NewReader(content))
+	nodes := p.gm.Parser().Parse(text.NewReader(content))
 
-	err = p.walkAst(ast, content, &hasWalkedOtherNodes, doc)
+	err = p.walkAst(nodes, content, &hasWalkedOtherNodes, doc)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +145,11 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 	}
 
 	lines := cb.Lines()
+
+	// If the code block is empty, we can skip it
+	if lines.Len() == 0 {
+		return nil
+	}
 
 	startLine := getLineNumber(content, lines.At(0).Start)
 	endLine := getLineNumber(content, lines.At(lines.Len()-1).Stop)
