@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 type rwc struct {
@@ -42,6 +43,10 @@ type Server struct {
 
 	// abstraction for transpiling operations
 	docService *iLsp.DocumentService
+
+	// Mutex for the debounceTimer map
+	mu            sync.Mutex
+	debounceTimer map[string]*time.Timer
 }
 
 type Options struct {
@@ -73,7 +78,8 @@ func NewServer(options Options) (*Server, error) {
 	}
 
 	s := &Server{
-		docService: dService,
+		docService:    dService,
+		debounceTimer: make(map[string]*time.Timer),
 	}
 
 	l, err := NewLuaLs(s)
@@ -185,39 +191,13 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		if len(params.ContentChanges) > 0 {
-			newContent := params.ContentChanges[0].Text
+		// I have implemented debouncing because testing in VSCode
+		// showed that the didChange event is sent on every character change
+		// so even though neovim does not do this, we handle it just in case
+		// as it can cause the entire LSP (and editor) to hang
+		s.handleDebouncedChange(params)
 
-			shadowURI, err := s.docService.TransformShadowDoc(newContent, params.TextDocument.URI)
-			if err != nil {
-				return nil, err
-			}
-
-			fsPath, err := s.docService.URIToPath(lsp.DocumentURI(shadowURI))
-			if err != nil {
-				return nil, err
-			}
-
-			content, err := os.ReadFile(fsPath)
-			if err != nil {
-				return nil, err
-			}
-
-			newParams := lsp.DidChangeTextDocumentParams{
-				TextDocument: params.TextDocument,
-				ContentChanges: []lsp.TextDocumentContentChangeEvent{
-					{
-						Text: string(content),
-					},
-				},
-			}
-			newParams.TextDocument.URI = lsp.DocumentURI(shadowURI)
-
-			return s.luaLS.ForwardRequest("textDocument/didChange", newParams)
-		}
-
-		// No content changes
-		return s.luaLS.ForwardRequest("textDocument/didChange", params)
+		return nil, nil
 	case "textDocument/didSave":
 		var params lsp.DidSaveTextDocumentParams
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
@@ -307,6 +287,52 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		return s.luaLS.ForwardRequest(req.Method, req.Params)
 	}
 
+}
+
+func (s *Server) handleDebouncedChange(params lsp.DidChangeTextDocumentParams) {
+	uri := string(params.TextDocument.URI)
+
+	s.mu.Lock()
+	if timer, exists := s.debounceTimer[uri]; exists {
+		timer.Stop()
+	}
+
+	s.debounceTimer[uri] = time.AfterFunc(200*time.Millisecond, func() {
+		if len(params.ContentChanges) > 0 {
+			newContent := params.ContentChanges[0].Text
+
+			shadowURI, err := s.docService.TransformShadowDoc(newContent, params.TextDocument.URI)
+			if err != nil {
+				slog.Error("failed to transform shadow doc", "error", err)
+				return
+			}
+
+			fsPath, err := s.docService.URIToPath(lsp.DocumentURI(shadowURI))
+			if err != nil {
+				slog.Error("failed to get fs path", "error", err)
+				return
+			}
+
+			content, err := os.ReadFile(fsPath)
+			if err != nil {
+				slog.Error("failed to read shadow file", "error", err)
+				return
+			}
+
+			newParams := lsp.DidChangeTextDocumentParams{
+				TextDocument: params.TextDocument,
+				ContentChanges: []lsp.TextDocumentContentChangeEvent{
+					{
+						Text: string(content),
+					},
+				},
+			}
+			newParams.TextDocument.URI = lsp.DocumentURI(shadowURI)
+
+			s.luaLS.ForwardRequest("textDocument/didChange", newParams)
+		}
+	})
+	s.mu.Unlock()
 }
 
 func (s *Server) SendDiagnostics(ctx context.Context, params lsp.PublishDiagnosticsParams) error {
