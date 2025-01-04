@@ -19,6 +19,9 @@ type TransformOptions struct {
 	NoBackup bool
 	// If true, pragma output is required for transformation, otherwise transform will error
 	RequirePragmaOutput bool
+
+	// By default, output files are .litlua.lua (safe) otherwise .lua
+	NoLitLuaOutputExt bool
 }
 
 func (t *TransformOptions) Pretty() string {
@@ -51,17 +54,27 @@ type Transformer struct {
 	writer *litlua.Writer
 	backup *litlua.BackupManager
 
+	outputExt string
+
 	opts TransformOptions
 }
 
 // NewTransformer creates a new Transformer instance with the specified options [TransformOptions]
 func NewTransformer(opts TransformOptions) *Transformer {
-	return &Transformer{
+	t := &Transformer{
 		parser: litlua.NewParser(),
 		writer: litlua.NewWriter(opts.WriterMode),
 		backup: litlua.NewBackupManager(),
 		opts:   opts,
 	}
+
+	if !opts.NoLitLuaOutputExt {
+		t.outputExt = ".litlua.lua"
+	} else {
+		t.outputExt = ".lua"
+	}
+
+	return t
 }
 
 type MarkdownSource struct {
@@ -78,7 +91,7 @@ func (t *Transformer) Transform(input MarkdownSource) (string, error) {
 	return t.transform(input, "")
 }
 
-// TransformToPath forces output to a specific path (for lsp shadow files files)
+// TransformToPath forces output to a specific path (for lsp shadow files)
 func (t *Transformer) TransformToPath(input MarkdownSource, outputPath string) (string, error) {
 	if t.opts.WriterMode != litlua.ModeShadow {
 		return "", fmt.Errorf("TransformToPath() can only be used with shadow mode")
@@ -108,11 +121,10 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 		if doc.Pragmas.Output == "" {
 			return "", fmt.Errorf("pragma key 'output' is required for transformation")
 		}
-		// append .lua to output file if not already present
-		clean := strings.TrimSuffix(doc.Pragmas.Output, ".lua")
-		absTransformPath = filepath.Join(filepath.Dir(input.Metadata.AbsSource), clean+".lua")
+
+		absTransformPath = filepath.Join(filepath.Dir(input.Metadata.AbsSource), t.CleanPragmaOutputExt(doc.Pragmas.Output))
 	} else {
-		absTransformPath, err = resolveTransformToAbsPath(input.Metadata.AbsSource, doc.Pragmas)
+		absTransformPath, err = t.resolveTransformToAbsPath(input.Metadata.AbsSource, doc.Pragmas)
 		if err != nil {
 			return "", fmt.Errorf("resolve output path error: %w", err)
 		}
@@ -120,10 +132,14 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 
 	// Only support creating backups for pretty mode
 	var bkPath string
-	if !t.opts.NoBackup && t.opts.WriterMode == litlua.ModePretty {
-		bkPath, err = t.backup.CreateBackupOf(absTransformPath)
-		if err != nil {
-			return "", fmt.Errorf("backup error: %w", err)
+	if t.opts.WriterMode == litlua.ModePretty {
+		// If we are not using the litlua extension, we should create a backup, to ensure safety
+		// we give the user the option to disable this
+		if t.opts.NoLitLuaOutputExt && !t.opts.NoBackup {
+			bkPath, err = t.backup.CreateBackupOf(absTransformPath)
+			if err != nil {
+				return "", fmt.Errorf("backup error: %w", err)
+			}
 		}
 	}
 
@@ -159,14 +175,21 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 	return absTransformPath, nil
 }
 
+// CleanPragmaOutputExt uses the options set on init to correctly use a .litlua or .lua extension
+func (t *Transformer) CleanPragmaOutputExt(pragmaOutput string) string {
+	clean := strings.TrimSuffix(pragmaOutput, ".lua") // remove .lua extension if present
+	clean = strings.TrimSuffix(clean, ".litlua")      // remove .litlua extension if present
+
+	return clean + t.outputExt
+}
+
 // resolveOutputPath generate the abs transformed path from the abs src path
-func resolveTransformToAbsPath(absSrcPath string, pragma litlua.Pragma) (string, error) {
+func (t *Transformer) resolveTransformToAbsPath(absSrcPath string, pragma litlua.Pragma) (string, error) {
 	if pragma.Output == "" {
-		return strings.TrimSuffix(absSrcPath, filepath.Ext(absSrcPath)) + ".lua", nil
+		// We default to the same path as the source file, but with the correct extension
+		return strings.TrimSuffix(absSrcPath, filepath.Ext(absSrcPath)) + t.outputExt, nil
 	}
 
-	// append .lua to output file if not already present
-	clean := strings.TrimSuffix(pragma.Output, ".lua")
 	mdDir := filepath.Dir(absSrcPath)
-	return filepath.Join(mdDir, clean+".lua"), nil
+	return filepath.Join(mdDir, t.CleanPragmaOutputExt(pragma.Output)), nil
 }

@@ -73,7 +73,9 @@ func (s *DocumentService) TransformShadowDoc(text string, documentURI lsp.Docume
 		return "", fmt.Errorf("invalid document URI: %w", err)
 	}
 
-	shadowPath := filepath.Join(s.shadowRoot, fsPath+".lua")
+	// Create shadow file path
+	// in the shadow root directory, with the same directory structure as the original file, but with transformer configured output extension
+	shadowPath := filepath.Join(s.shadowRoot, filepath.Dir(fsPath)+s.shadowTransformer.CleanPragmaOutputExt(filepath.Base(fsPath)))
 	if err := os.MkdirAll(filepath.Dir(shadowPath), 0755); err != nil {
 		return "", err
 	}

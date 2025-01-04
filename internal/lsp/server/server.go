@@ -63,11 +63,13 @@ var DefaultServerOptions = Options{
 			WriterMode:          litlua.ModeShadow,
 			NoBackup:            true,
 			RequirePragmaOutput: false,
+			NoLitLuaOutputExt:   false,
 		},
 		FinalTransformerOpts: transformer.TransformOptions{
 			WriterMode:          litlua.ModePretty,
 			NoBackup:            false,
 			RequirePragmaOutput: true,
+			NoLitLuaOutputExt:   false,
 		},
 	},
 }
