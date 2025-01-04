@@ -205,7 +205,39 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
-		return s.luaLS.ForwardRequest(req.Method, params)
+		// TODO: Add debouncing
+		slog.Info("Compiling final output on save", "uri", params.TextDocument.URI)
+
+		shadowURI, exists := s.docService.ShadowURI(string(params.TextDocument.URI))
+		if !exists {
+			return nil, fmt.Errorf("no shadow file found for %s", params.TextDocument.URI)
+		}
+
+		originalURI, exists := s.docService.OriginalURI(shadowURI)
+		if !exists {
+			return nil, fmt.Errorf("no original file found for %s", shadowURI)
+		}
+
+		originalPath, err := s.docService.URIToPath(lsp.DocumentURI(originalURI))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get original path: %w", err)
+		}
+
+		slog.Debug("Original path", "path", originalPath)
+
+		content, err := os.ReadFile(originalPath)
+		if err != nil {
+			return nil, err
+		}
+
+		transformedPath, err := s.docService.TransformFinalDoc(string(content), originalPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform final doc: %w", err)
+		}
+
+		slog.Info("Compiled final output", "path", transformedPath)
+
+		return nil, nil
 	case "textDocument/definition":
 		var params lsp.TextDocumentPositionParams
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
@@ -346,6 +378,7 @@ func (s *Server) getShadowToOriginalURI(shadowURI string) (string, bool) {
 
 	path := strings.TrimPrefix(shadowURI, "file:///")
 	path = strings.TrimPrefix(path, "private/")
+
 	normalizedURI := "file:///" + path
 
 	slog.Debug("URI normalization",
