@@ -59,23 +59,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	flag.Parse()
-
-	var handler slog.Handler
 	if *debug {
-		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 			Level:     slog.LevelDebug,
 			AddSource: true,
-		})
+		})))
 	} else {
-		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 			Level:     slog.LevelInfo,
 			AddSource: true,
-		})
+		})))
 	}
-
-	logger := slog.New(handler)
-	slog.SetDefault(logger)
 
 	slog.Info("starting litlua-ls with opts", "version", litlua.VERSION, "debug", *debug, "custom-luals", *lualsPath, "custom-shadow-root", *shadowRoot)
 

@@ -79,7 +79,7 @@ func (l *LuaLS) Start() error {
 		}
 	}()
 
-	slog.Debug("lua-language-server started", "path", l.Path)
+	slog.Info("lua-language-server started", "path", l.Path)
 
 	return nil
 }
