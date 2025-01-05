@@ -2,19 +2,20 @@ package litlua
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"gotest.tools/v3/golden"
 	"log/slog"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/golden"
 )
 
 func TestCanWriteToPrettyFile(t *testing.T) {
 	d := Document{
 		Metadata: MetaData{
-			AbsSource: "test.md",
+			AbsSource: "test.litlua.md",
 		},
 		Blocks: []CodeBlock{
 			{
@@ -55,7 +56,7 @@ func TestCanWriteToPrettyFile(t *testing.T) {
 print("Hello World")
 print("Goodbye World")
 
-`, "test.md", now.Format(time.RFC3339))
+`, "test.litlua.md", now.Format(time.RFC3339))
 	require.Equal(t, expected, output.String())
 }
 
@@ -73,7 +74,7 @@ func TestCanWriteToShadowFile(t *testing.T) {
 		{
 			name:       "can write document struct to lsp shadow file",
 			goldenFile: "lsp_shadow.golden.lua",
-			// This document is the parser output of testdata/parser/basic_valid.md
+			// This document is the parser output of testdata/parser/basic_valid.litlua.md
 			document: Document{
 				Metadata: MetaData{},
 				Pragmas: Pragma{

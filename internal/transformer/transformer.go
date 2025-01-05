@@ -181,7 +181,7 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 	return absTransformPath, nil
 }
 
-// CleanPragmaOutputExt uses all pragmas to correctly use a .litlua or .lua extension
+// CleanPragmaOutputExt uses all pragmas to correctly determine the output path
 func (t *Transformer) CleanPragmaOutputExt(pragma litlua.Pragma) string {
 	if pragma.Output != "" && pragma.Force {
 		return pragma.Output
@@ -193,19 +193,31 @@ func (t *Transformer) CleanPragmaOutputExt(pragma litlua.Pragma) string {
 	return clean + t.outputExt
 }
 
-// CleanOutput removes the .lua or .litlua extension from the output path
-func (t *Transformer) CleanOutput(output string) string {
-	clean := strings.TrimSuffix(output, ".lua")
-	clean = strings.TrimSuffix(clean, ".litlua")
-
-	return clean + t.outputExt
+// CleanShadowOutputExt removes the .litlua.md extension from src files and replaces it with .lua
+//
+// Used by the shadow lsp tranformer to turn a md file like test.litlua.md
+// to test.lua in tmp dir for LSP proxying
+func (t *Transformer) CleanShadowOutputExt(output string) string {
+	return strings.TrimSuffix(output, InputExt) + t.outputExt
 }
 
 // resolveOutputPath generate the abs transformed path from the abs src path
 func (t *Transformer) resolveTransformToAbsPath(absSrcPath string, pragma litlua.Pragma) (string, error) {
 	if pragma.Output == "" {
-		// We default to the same path as the source file, but with the correct extension
-		return strings.TrimSuffix(absSrcPath, filepath.Ext(absSrcPath)) + t.outputExt, nil
+		// If there is no pragma output, we trim the extension of the file where applicable
+
+		// If extenion is input, trim and add output extension
+		if strings.HasSuffix(absSrcPath, InputExt) {
+			return strings.TrimSuffix(absSrcPath, InputExt) + t.outputExt, nil
+		}
+
+		// If extension is just .md (backwards compat), trim and add ext
+		if strings.HasSuffix(absSrcPath, ".md") {
+			return strings.TrimSuffix(absSrcPath, ".md") + t.outputExt, nil
+		}
+
+		// Else we just append
+		return absSrcPath + t.outputExt, nil
 	}
 
 	mdDir := filepath.Dir(absSrcPath)

@@ -145,16 +145,16 @@ See [LSP.md](./LSP.md) for more information on the LSP support and usage.
 
 #### Basic usage:
 
-Converts markdown document to lua file (based on the `output` pragma) else defaults to original file name with `.lua` extension:
+Converts `.litlua.md` markdown document to lua file (based on the `output` pragma) else defaults to original file name with `.litlua.lua` extension:
 
 ```bash
-litlua <your_configuration_file_with_lua_src.md>
+litlua <your_configuration_file_with_lua_src.litlua.md>
 ```
 
 Enable debug logging during conversion:
 
 ```bash
-litlua -debug <your_configuration_file_with_lua_src.md>
+litlua -debug <your_configuration_file_with_lua_src.litlua.md>
 ```
 
 #### Output

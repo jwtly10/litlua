@@ -96,7 +96,7 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 
 // handleHTMLBlock parses pragma values from HTML comments in markdown.
 //
-// # Only HTML comments at the top of the .md file are considered pragmas
+// # Only HTML comments at the top of the .litlua.md file are considered pragmas
 //
 // For example:
 //
