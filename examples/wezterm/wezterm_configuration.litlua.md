@@ -1,4 +1,6 @@
 <!-- @pragma output:.wezterm.lua -->
+<!-- @pragma force:true -->
+
 <img height="128" alt="WezTerm Icon" src="https://raw.githubusercontent.com/wez/wezterm/main/assets/icon/wezterm-icon.svg" align="left">
 
 ‎

@@ -3,11 +3,12 @@ package transformer
 import (
 	"bytes"
 	"fmt"
-	"github.com/jwtly10/litlua"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/jwtly10/litlua"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTransformer(t *testing.T) {
@@ -209,7 +210,7 @@ func TestTransformer(t *testing.T) {
 			}
 
 			if tt.opts.WriterMode == litlua.ModeShadow {
-				shadowPath := filepath.Join(dir.path, transformer.CleanPragmaOutputExt(tt.inputFile))
+				shadowPath := filepath.Join(dir.path, transformer.CleanOutput(tt.inputFile))
 				src.Metadata.AbsSource = shadowPath
 
 				outputPath, err := transformer.TransformToPath(src, shadowPath)

@@ -122,7 +122,7 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 			return "", fmt.Errorf("pragma key 'output' is required for transformation")
 		}
 
-		absTransformPath = filepath.Join(filepath.Dir(input.Metadata.AbsSource), t.CleanPragmaOutputExt(doc.Pragmas.Output))
+		absTransformPath = filepath.Join(filepath.Dir(input.Metadata.AbsSource), t.CleanPragmaOutputExt(doc.Pragmas))
 	} else {
 		absTransformPath, err = t.resolveTransformToAbsPath(input.Metadata.AbsSource, doc.Pragmas)
 		if err != nil {
@@ -175,10 +175,22 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 	return absTransformPath, nil
 }
 
-// CleanPragmaOutputExt uses the options set on init to correctly use a .litlua or .lua extension
-func (t *Transformer) CleanPragmaOutputExt(pragmaOutput string) string {
-	clean := strings.TrimSuffix(pragmaOutput, ".lua") // remove .lua extension if present
-	clean = strings.TrimSuffix(clean, ".litlua")      // remove .litlua extension if present
+// CleanPragmaOutputExt uses all pragmas to correctly use a .litlua or .lua extension
+func (t *Transformer) CleanPragmaOutputExt(pragma litlua.Pragma) string {
+	if pragma.Output != "" && pragma.Force {
+		return pragma.Output
+	}
+
+	clean := strings.TrimSuffix(pragma.Output, ".lua") // remove .lua extension if present
+	clean = strings.TrimSuffix(clean, ".litlua")       // remove .litlua extension if present
+
+	return clean + t.outputExt
+}
+
+// CleanOutput removes the .lua or .litlua extension from the output path
+func (t *Transformer) CleanOutput(output string) string {
+	clean := strings.TrimSuffix(output, ".lua")
+	clean = strings.TrimSuffix(clean, ".litlua")
 
 	return clean + t.outputExt
 }
@@ -191,5 +203,5 @@ func (t *Transformer) resolveTransformToAbsPath(absSrcPath string, pragma litlua
 	}
 
 	mdDir := filepath.Dir(absSrcPath)
-	return filepath.Join(mdDir, t.CleanPragmaOutputExt(pragma.Output)), nil
+	return filepath.Join(mdDir, t.CleanPragmaOutputExt(pragma)), nil
 }

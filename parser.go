@@ -211,6 +211,12 @@ func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 			return fmt.Errorf("could not parse debug pragma value: %w", err)
 		}
 		pragma.Debug = b
+	case string(PragmaForce):
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("could not parse force pragma value: %w", err)
+		}
+		pragma.Force = b
 	default:
 		slog.Debug("unknown pragma key", "key", key)
 	}

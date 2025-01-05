@@ -20,12 +20,15 @@ type PragmaKey string
 
 const (
 	PragmaOutput PragmaKey = "output"
+	PragmaForce  PragmaKey = "force"
 	PragmaDebug  PragmaKey = "debug"
 )
 
 type Pragma struct {
 	// The lua file output directory, relative to the source markdown file
 	Output string
+	// Force the output file type directly (to not convert to .litlua.lua)
+	Force bool
 	// Internal flag for additional debugging output
 	Debug bool
 }

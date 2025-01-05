@@ -1,9 +1,10 @@
 package litlua
 
 import (
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCanParseMarkdownDoc(t *testing.T) {
@@ -170,6 +171,13 @@ func TestCanExtractPragmaFromLine(t *testing.T) {
 			line: "<!-- @pragma output: init.lua -->",
 			expected: Pragma{
 				Output: "init.lua",
+			},
+		},
+		{
+			name: "test bool force pragma",
+			line: "<!-- @pragma force: true -->",
+			expected: Pragma{
+				Force: true,
 			},
 		},
 		{
