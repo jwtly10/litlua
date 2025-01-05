@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/sourcegraph/go-lsp"
@@ -116,7 +117,13 @@ func (l *LuaLS) ForwardRequest(method string, params interface{}) (interface{}, 
 // findLuaLS attempts to find the lua-language-server binary
 // based on common installation paths
 func findLuaLS() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
 	commonPaths := []string{
+		filepath.Join(homeDir, ".local/share/nvim/mason/bin/lua-language-server"), // Default mason path
 		"/opt/homebrew/bin/lua-language-server",
 		"/usr/local/bin/lua-language-server",
 		"/usr/bin/lua-language-server",
@@ -124,6 +131,7 @@ func findLuaLS() (string, error) {
 
 	for _, path := range commonPaths {
 		if _, err := os.Stat(path); err == nil {
+			slog.Info("found lua-language-server in common paths", "path", path)
 			return path, nil
 		}
 	}
