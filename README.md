@@ -20,7 +20,7 @@ After spending some time with Emacs, I could see the value of having litterate c
 
 > Check out [Examples](https://github.com/jwtly10/litlua/tree/64b8e4407167ddac72ccd8c92c97f5a331c24550/examples) for a small showcase of what LitLua is about. 
 > 
-> I've re-written some of [kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) in markdown and used LitLua to generate the lua files, you can see the same for an example wezterm config. *.lua is the transpiled file, *.md is the markdown source.
+> I've re-written some of [kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) in markdown and used LitLua to generate the lua files, you can see the same for an example wezterm config - .wezterm.lua is the transpiled file, *.litlua.md is the markdown source.
 > 
 > If you have the LitLua LSP installed, you will also get LSP support for the markdown files, so you can hover over functions and go to definitions etc.
 
@@ -28,7 +28,7 @@ After spending some time with Emacs, I could see the value of having litterate c
 ## Roadmap
 - [X] Basic Markdown to Lua conversion to SFO
 - [X] Built in LitLua LSP support 
-- [ ] Watch mode for live updating of configuration files
+- [X] Live file compilations (via LSP)
 - [ ] Single file to multiple file output (master file, into multiple configuration .lua files)
 - [ ] 'Tagging' of code blocks for easy reference
 - [ ] Hot swapping configuration management
@@ -39,17 +39,24 @@ With as much work done via the LSP as possible, to create a seamless experience 
 
 ## Installation
 
+These installation instructions assume you have go installed - https://go.dev/doc/install
+
 There are 2 installations available, the LSP and the CLI.
 
 The LSP is editor agnostic and will try to take care of all compilation while the LSP is running. On save/exit, 
 the lua file will be generated, given output pragma options are set (see below [FileFormat](#file-format)).
 
-The CLI contains a subset of the LSP features, and is more suited for one off conversions, or for CI/Scripting support
+The CLI contains a subset of the LSP features, and is more suited directory or one off conversions, or for CI/Scripting support
+
+It is recommend you read here before installing and getting started: [LSP.md](./LSP.md)
+
+You can install both with:
+
+```sh
+go install github.com/jwtly10/litlua/cmd/...@latest
+```
 
 ### LSP Installation
-
-Assuming you have go installed - https://go.dev/doc/install. You can install the LitLua language server here:
-
 
 ```sh
 go install github.com/jwtly10/litlua/cmd/litlua-ls@latest
@@ -57,14 +64,12 @@ go install github.com/jwtly10/litlua/cmd/litlua-ls@latest
 
 ### CLI Installation
 
-Assuming you have go installed - https://go.dev/doc/install. You can install the LitLua CLI here:
-
-```bash
+```sh
 go install github.com/jwtly10/litlua/cmd/litlua@latest
 ```
 
 ### Build from source
-```bash
+```sh
 # Clone the repo
 git clone https://github.com/jwtly10/litlua.git
 cd litlua
@@ -86,7 +91,7 @@ More installation options will be available in the future.
 
 ### File Format
 
-LitLua processes Markdown files (`.md`) containing Lua code blocks. Here's an example:
+LitLua processes custom Markdown files (`.litlua.md`) containing Lua code blocks. Here's an example:
 
 ````markdown
 <!-- @pragma output: init.lua -->
@@ -125,9 +130,10 @@ LitLua will:
 1. Parse the Markdown document
 2. Extract pragma directives at the top of the file, such as `output:init.lua`
 3. Extract Lua code blocks
-4. Generate a clean Lua file with all the code to the output file `init.lua`
+4. Generate a clean Lua file with all the code to the output file `init.litlua.lua`
 5. Create a backup of any existing output file
 
+> Note: The output file will be `init.litlua.lua` for safety reason - please see [Configuration](#configuration) for details
 
 
 ## Usage
@@ -158,7 +164,21 @@ LitLua generates a single Lua file containing all the extracted code blocks, mai
 #### Configuration
 
 
-By default, LitLua will generate the output file in the same directory as the input file, with a `.lua` extension. You can customize the output path using pragmas **at the start** your document:
+Litlua will always default to outputing files with a `.litlua.lua` extension. Even if you have specified `something.lua`. This is done as a safety precaution to prevent the case of accidently updating a file you did not back up. 
+
+For most usecases, this is not a problem, as `.*.lua` will ensure the filetype still has all usual properties of a lua file. 
+
+In order to FORCE the output path you can use:
+
+``` markdown
+<!-- @pragma output: init.lua -->
+<!-- @pragma force: true -->
+```
+
+Which WILL output a file `init.lua`. Please use this at your own risk.
+
+
+By default, LitLua will generate the output file in the same directory as the input file, with a `.litlua.lua` extension. You can customize the output path using pragmas **at the start** your document:
 
 > NOTE: The file path will ALWAYS be relative to the input file
 
@@ -180,7 +200,7 @@ go test ./... -v
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+Contributions are welcome! Please feel free to submit a Pull Request or Issue.
 
 ## License
 
