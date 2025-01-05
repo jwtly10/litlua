@@ -8,7 +8,6 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/yuin/goldmark v1.7.8
 	gotest.tools/v3 v3.5.1
-	github.com/google/uuid v1.6.0
 )
 
 require (
