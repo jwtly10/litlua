@@ -18,7 +18,7 @@ LitLua is a literate programming tool inspired by Emacs designed to support bett
 After spending some time with Emacs, I could see the value of having litterate configurations for more than just the emacs eco system - configurations being just a readable 'pretty' markdown file, that will be 'transpiled' into the expected format!
 
 
-> Check out [Examples](https://github.com/jwtly10/litlua/tree/64b8e4407167ddac72ccd8c92c97f5a331c24550/examples) for a small showcase of what LitLua is about. 
+> Check out [Examples](https://github.com/jwtly10/litlua/blob/main/examples/kickstart.nvim/kickstart_configuration.litlua.md) for a small showcase of what LitLua is about. 
 > 
 > I've re-written some of [kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) in markdown and used LitLua to generate the lua files, you can see the same for an example wezterm config - .wezterm.lua is the transpiled file, *.litlua.md is the markdown source.
 > 

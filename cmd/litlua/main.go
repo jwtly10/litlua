@@ -12,17 +12,30 @@ import (
 	"github.com/jwtly10/litlua/internal/transformer"
 )
 
-const usage = `LitLua Language CLI
-
-The LitLua CLI provides manual transformation of LitLua files.
+const usage = `LitLua CLI
+The LitLua CLI provides manual transformation of LitLua markdown files into Lua
 
 Usage:
-  litlua [flags]
+  litlua [flags] <input-file>
+
+Examples:
+  # Transform a single file with default settings
+  $ litlua example.litlua.md
+
+  # Enable debug logging while transforming
+  $ litlua -debug example.litlua.md
+
+  # Print version information
+  $ litlua -version
 
 Flags:
 `
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, usage)
+		flag.PrintDefaults()
+	}
 	var (
 		debug   = flag.Bool("debug", false, "Enable debug logging")
 		version = flag.Bool("version", false, "Print version information")
