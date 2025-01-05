@@ -111,8 +111,8 @@ Litlua provides a CLI for manually compiling the final lua file from markdown, b
 ### Neovim
 I have not implemented a neovim plugin yet, this is planned for a future version (or someone in the community :)), but for now you can add the following to your Neovim configuration (requires nvim-lspconfig):
 ```lua
-vim.api.nvim_create_autocmd('FileType', {
-    pattern = 'markdown',
+vim.api.nvim_create_autocmd('BufRead', {
+    pattern = '*.litlua.md',
     callback = function()
         vim.lsp.start({
             name = 'litlua',

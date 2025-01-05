@@ -24,6 +24,8 @@ type TransformOptions struct {
 	NoLitLuaOutputExt bool
 }
 
+var InputExt = ".litlua.md"
+
 func (t *TransformOptions) Pretty() string {
 	return fmt.Sprintf("mode=%s backup=%s require_output_pragma=%s",
 		writerModeToString(t.WriterMode),
@@ -86,6 +88,10 @@ type MarkdownSource struct {
 func (t *Transformer) Transform(input MarkdownSource) (string, error) {
 	if t.opts.WriterMode == litlua.ModeShadow {
 		return "", fmt.Errorf("cannot use Transform() for shadow mode, use TransformToPath() instead")
+	}
+
+	if !strings.HasSuffix(input.Metadata.AbsSource, InputExt) {
+		return "", fmt.Errorf("source file must be %s", InputExt)
 	}
 
 	return t.transform(input, "")

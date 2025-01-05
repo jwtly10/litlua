@@ -184,6 +184,14 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 			return nil, err
 		}
 
+		if !strings.HasSuffix(string(params.TextDocument.URI), ".litlua.md") {
+			slog.Info("ignoring non-litlua file", "uri", params.TextDocument.URI)
+			return nil, &jsonrpc2.Error{
+				Code:    jsonrpc2.CodeInvalidRequest,
+				Message: "litlua-ls only supports .litlua.md files",
+			}
+		}
+
 		shadowURI, err := s.docService.TransformShadowDoc(params.TextDocument.Text, params.TextDocument.URI)
 		if err != nil {
 			return nil, err
