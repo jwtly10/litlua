@@ -133,7 +133,7 @@ LitLua will:
 ## Usage
 
 ### LSP
-See [litlua-ls.md](./litlua-ls.md) for more information on the LSP support and usage.
+See [LSP.md](./LSP.md) for more information on the LSP support and usage.
 
 ### CLI
 

@@ -22,14 +22,17 @@ type LuaLS struct {
 	conn *jsonrpc2.Conn
 	cmd  *exec.Cmd
 
+	Path string
+
 	server lspServer
 }
 
-func NewLuaLs(server lspServer) (*LuaLS, error) {
-	luaPath, err := findLuaLS()
+func NewLuaLs(server lspServer, luaLSPath string) (*LuaLS, error) {
+	luaPath, err := findLuaLS(luaLSPath)
 	if err != nil {
 		return nil, fmt.Errorf("lua-language-server not found: %w", err)
 	}
+
 	cmd := exec.Command(luaPath)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -46,6 +49,7 @@ func NewLuaLs(server lspServer) (*LuaLS, error) {
 	l := &LuaLS{
 		cmd:    cmd,
 		server: server,
+		Path:   luaPath,
 	}
 
 	l.conn = jsonrpc2.NewConn(
@@ -60,20 +64,24 @@ func NewLuaLs(server lspServer) (*LuaLS, error) {
 		}),
 	)
 
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start lua-language-server: %w", err)
+	return l, nil
+}
+
+func (l *LuaLS) Start() error {
+	if err := l.cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start lua-language-server: %w", err)
 	}
 
 	go func() {
-		err := cmd.Wait()
+		err := l.cmd.Wait()
 		if err != nil {
 			slog.Error("lua-language-server exited", "error", err)
 		}
 	}()
 
-	slog.Debug("lua-language-server started", "path", luaPath)
+	slog.Debug("lua-language-server started", "path", l.Path)
 
-	return l, nil
+	return nil
 }
 
 // HandleResponse handles responses from the lua-language-server
@@ -114,9 +122,11 @@ func (l *LuaLS) ForwardRequest(method string, params interface{}) (interface{}, 
 	return result, err
 }
 
-// findLuaLS attempts to find the lua-language-server binary
-// based on common installation paths
-func findLuaLS() (string, error) {
+// findLuaLS attempts to find the lua-language-server binary on the system
+//
+// It will try to find the binary based on the provided path, if not it will
+// attempt common paths where the binary might be located.
+func findLuaLS(tryFirst string) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
@@ -124,15 +134,23 @@ func findLuaLS() (string, error) {
 
 	commonPaths := []string{
 		filepath.Join(homeDir, ".local/share/nvim/mason/bin/lua-language-server"), // Default mason path
-		"/opt/homebrew/bin/lua-language-server",
-		"/usr/local/bin/lua-language-server",
-		"/usr/bin/lua-language-server",
+		"/opt/homebrew/bin/lua-language-server",                                   // Homebrew (arm64)
+		"/usr/local/bin/lua-language-server",                                      // Homebrew (x86_64)
+		"/usr/bin/lua-language-server",                                            // Linux
+	}
+
+	if tryFirst != "" {
+		commonPaths = append([]string{tryFirst}, commonPaths...)
 	}
 
 	for _, path := range commonPaths {
 		if _, err := os.Stat(path); err == nil {
-			slog.Info("found lua-language-server in common paths", "path", path)
+			slog.Info("valid path, will try to execute lua-language-server", "path", path)
 			return path, nil
+		} else {
+			if path == tryFirst {
+				slog.Error("custom path failed stat. Will try common locations.", "path", path, "error", err)
+			}
 		}
 	}
 

@@ -2,15 +2,16 @@ package lsp
 
 import (
 	"fmt"
-	"github.com/jwtly10/litlua"
-	"github.com/jwtly10/litlua/internal/transformer"
-	"github.com/sourcegraph/go-lsp"
 	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/jwtly10/litlua"
+	"github.com/jwtly10/litlua/internal/transformer"
+	"github.com/sourcegraph/go-lsp"
 )
 
 type DocumentServiceOptions struct {
@@ -19,6 +20,22 @@ type DocumentServiceOptions struct {
 
 	// Root directory for shadow files
 	ShadowRoot string
+}
+
+var DefaultDocumentServiceOptions = DocumentServiceOptions{
+	ShadowRoot: filepath.Join(os.TempDir(), "litlua-workspace"),
+	ShadowTransformerOpts: transformer.TransformOptions{
+		WriterMode:          litlua.ModeShadow,
+		NoBackup:            true,
+		RequirePragmaOutput: false,
+		NoLitLuaOutputExt:   false,
+	},
+	FinalTransformerOpts: transformer.TransformOptions{
+		WriterMode:          litlua.ModePretty,
+		NoBackup:            false,
+		RequirePragmaOutput: true,
+		NoLitLuaOutputExt:   false,
+	},
 }
 
 func (o DocumentServiceOptions) Validate() error {
@@ -159,5 +176,12 @@ func (s *DocumentService) PathToURI(path string) string {
 
 // CleanupShadowFiles removes all shadow files
 func (s *DocumentService) CleanupShadowFiles() error {
+	//  Don't cleanup the user specified path
+	if s.shadowRoot != DefaultDocumentServiceOptions.ShadowRoot {
+		slog.Debug("skipping shadow file cleanup due to user specified", "path", s.shadowRoot)
+		return nil
+	}
+
+	slog.Debug("cleaning up shadow lsp files", "path", s.shadowRoot)
 	return os.RemoveAll(s.shadowRoot)
 }

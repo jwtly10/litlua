@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"flag"
-	"io"
+	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 
+	"github.com/jwtly10/litlua"
 	"github.com/jwtly10/litlua/internal/lsp/server"
 	"github.com/sourcegraph/jsonrpc2"
 )
@@ -18,41 +18,52 @@ func (stdRWC) Read(p []byte) (int, error)  { return os.Stdin.Read(p) }
 func (stdRWC) Write(p []byte) (int, error) { return os.Stdout.Write(p) }
 func (stdRWC) Close() error                { return nil }
 
-// getLogFile returns a log file for the lsp server to write to.
-//
-// During development (-debug flag) uses persistent log for easy access.
-func getLogFile(debug bool) (*os.File, error) {
-	if debug {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, err
-		}
-		logDir := filepath.Join(homeDir, ".litlua")
-		if err := os.MkdirAll(logDir, 0755); err != nil {
-			return nil, err
-		}
-		return os.OpenFile(filepath.Join(logDir, "litlua-ls.log"),
-			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	}
+const usage = `LitLua Language Server
 
-	return os.CreateTemp("", "litlua-ls-*.log")
-}
+The LitLua Language Server provides LSP features for LitLua files, including:
+  - Code completion
+  - Go to definition
+  - Hover information
+  - Diagnostics
+
+Usage:
+  litlua-ls [flags]
+
+Flags:
+`
 
 func main() {
-	var debug bool
-	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, usage)
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  # Start the server with default settings\n")
+		fmt.Fprintf(os.Stderr, "  $ litlua-ls\n\n")
+		fmt.Fprintf(os.Stderr, "  # Start with custom lua-language-server path\n")
+		fmt.Fprintf(os.Stderr, "  $ litlua-ls -luals=/usr/local/bin/lua-language-server\n\n")
+		fmt.Fprintf(os.Stderr, "  # Enable debug logging\n")
+		fmt.Fprintf(os.Stderr, "  $ litlua-ls -debug\n")
+	}
+
+	var (
+		debug      = flag.Bool("debug", false, "Enable debug logging")
+		lualsPath  = flag.String("luals", "", "Custom path to lua-language-server")
+		shadowRoot = flag.String("shadow-root", "", "Custom path to shadow root directory (for LSP intermediate files)")
+		version    = flag.Bool("version", false, "Print version information")
+	)
+
 	flag.Parse()
 
-	logFile, err := getLogFile(debug)
-	if err != nil {
-		slog.Error("failed to setup logging", "error", err)
-		os.Exit(1)
+	if *version {
+		fmt.Printf("litlua-ls version %s\n", litlua.VERSION)
+		os.Exit(0)
 	}
-	defer logFile.Close()
+
+	flag.Parse()
 
 	var handler slog.Handler
-	if debug {
-		handler = slog.NewTextHandler(io.MultiWriter(os.Stderr, logFile), &slog.HandlerOptions{
+	if *debug {
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 			Level:     slog.LevelDebug,
 			AddSource: true,
 		})
@@ -66,16 +77,24 @@ func main() {
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
-	slog.Info("starting litlua-ls", "logfile", logFile.Name())
+	slog.Info("starting litlua-ls with opts", "version", litlua.VERSION, "debug", *debug, "custom-luals", *lualsPath, "custom-shadow-root", *shadowRoot)
 
 	ctx := context.Background()
 
-	opts := server.DefaultServerOptions
+	opts := server.Options{
+		LuaLsPath:  *lualsPath,  // Will use default if empty
+		ShadowRoot: *shadowRoot, // Will use default if empty
+	}
 
 	s, err := server.NewServer(opts)
 	if err != nil {
-		slog.Error("failed to create server", "error", err)
+		slog.Error("failed to create lsp server", "error", err)
 		return
+	}
+
+	if err := s.Start(); err != nil {
+		slog.Error("failed to start lsp server", "error", err)
+		os.Exit(1)
 	}
 
 	<-jsonrpc2.NewConn(

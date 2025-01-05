@@ -4,18 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jwtly10/litlua"
-	iLsp "github.com/jwtly10/litlua/internal/lsp"
-	"github.com/jwtly10/litlua/internal/transformer"
-	"github.com/sourcegraph/go-lsp"
-	"github.com/sourcegraph/jsonrpc2"
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	iLsp "github.com/jwtly10/litlua/internal/lsp"
+	"github.com/sourcegraph/go-lsp"
+	"github.com/sourcegraph/jsonrpc2"
 )
 
 type rwc struct {
@@ -34,10 +32,45 @@ func (rw rwc) Close() error {
 	return werr
 }
 
+type Options struct {
+	// Custom path to lua-language-server
+	LuaLsPath string
+	// Custom path to where intermediate LSP shadow files are stored
+	ShadowRoot string
+}
+
+func (o *Options) Validate() error {
+	if o.LuaLsPath != "" {
+		if _, err := os.Stat(o.LuaLsPath); err != nil {
+			return fmt.Errorf("lua-language-server path is invalid: %w", err)
+		}
+	}
+
+	if o.ShadowRoot != "" {
+		if _, err := os.Stat(o.ShadowRoot); err != nil {
+			return fmt.Errorf("shadow root path is invalid: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (o *Options) OverrideDocOpts(opts *iLsp.DocumentServiceOptions) error {
+	if err := o.Validate(); err != nil {
+		return fmt.Errorf("invalid server options: %w", err)
+	}
+
+	if o.ShadowRoot != "" {
+		opts.ShadowRoot = o.ShadowRoot
+	}
+
+	return opts.Validate()
+}
+
 type Server struct {
 	conn *jsonrpc2.Conn
 	// lua lsp interface
-	luaLS *LuaLS
+	LuaLS *LuaLS
 
 	// tracking for method request counts
 	trackRequestCount sync.Map
@@ -50,32 +83,14 @@ type Server struct {
 	debounceTimer map[string]*time.Timer
 }
 
-type Options struct {
-	LuaLsPath  string
-	DocService iLsp.DocumentServiceOptions
-}
+func NewServer(opts Options) (*Server, error) {
+	// We load defaults
+	docOpts := iLsp.DefaultDocumentServiceOptions
+	if err := opts.OverrideDocOpts(&docOpts); err != nil {
+		return nil, fmt.Errorf("failed to set options: %w", err)
+	}
 
-var DefaultServerOptions = Options{
-	LuaLsPath: filepath.Join(os.TempDir(), "litlua-workspace"),
-	DocService: iLsp.DocumentServiceOptions{
-		ShadowRoot: filepath.Join(os.TempDir(), "litlua-workspace"),
-		ShadowTransformerOpts: transformer.TransformOptions{
-			WriterMode:          litlua.ModeShadow,
-			NoBackup:            true,
-			RequirePragmaOutput: false,
-			NoLitLuaOutputExt:   false,
-		},
-		FinalTransformerOpts: transformer.TransformOptions{
-			WriterMode:          litlua.ModePretty,
-			NoBackup:            false,
-			RequirePragmaOutput: true,
-			NoLitLuaOutputExt:   false,
-		},
-	},
-}
-
-func NewServer(options Options) (*Server, error) {
-	dService, err := iLsp.NewDocumentService(options.DocService)
+	dService, err := iLsp.NewDocumentService(docOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -85,13 +100,21 @@ func NewServer(options Options) (*Server, error) {
 		debounceTimer: make(map[string]*time.Timer),
 	}
 
-	l, err := NewLuaLs(s)
+	l, err := NewLuaLs(s, opts.LuaLsPath)
 	if err != nil {
 		return nil, err
 	}
 
-	s.luaLS = l
+	s.LuaLS = l
 	return s, nil
+}
+
+func (s *Server) Start() error {
+	if err := s.LuaLS.Start(); err != nil {
+		return fmt.Errorf("failed to start lua-ls: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (result interface{}, err error) {
@@ -117,7 +140,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		initParams.RootPath = s.docService.ShadowRoot()
 		initParams.RootURI = lsp.DocumentURI("file://" + s.docService.ShadowRoot())
 
-		result, err := s.luaLS.ForwardRequest(req.Method, initParams)
+		result, err := s.LuaLS.ForwardRequest(req.Method, initParams)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +159,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
 			return nil, err
 		}
-		return s.luaLS.ForwardRequest(req.Method, params)
+		return s.LuaLS.ForwardRequest(req.Method, params)
 	case "shutdown":
 		slog.Info("shutting down")
 
@@ -187,7 +210,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 
 		slog.Debug("forwarding didOpen to lua-ls", "params", newParams)
 
-		return s.luaLS.ForwardRequest("textDocument/didOpen", newParams)
+		return s.LuaLS.ForwardRequest("textDocument/didOpen", newParams)
 	case "textDocument/didChange":
 		var params lsp.DidChangeTextDocumentParams
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
@@ -252,7 +275,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		}
 
 		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
-		result, err := s.luaLS.ForwardRequest(req.Method, params)
+		result, err := s.LuaLS.ForwardRequest(req.Method, params)
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +315,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		}
 
 		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
-		return s.luaLS.ForwardRequest(req.Method, params)
+		return s.LuaLS.ForwardRequest(req.Method, params)
 
 	case "textDocument/completion":
 		var params lsp.CompletionParams
@@ -306,7 +329,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 		}
 
 		params.TextDocument.URI = lsp.DocumentURI(shadowURI)
-		return s.luaLS.ForwardRequest(req.Method, params)
+		return s.LuaLS.ForwardRequest(req.Method, params)
 
 	// There are some methods we want to ignore, as they are not implemented
 	// and cause overheard when proxying to the lua-language-server
@@ -319,7 +342,7 @@ func (s *Server) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.
 	// for anything undocumented as supported
 	default:
 		//slog.Warn("unknown method", "method", req.Method)
-		return s.luaLS.ForwardRequest(req.Method, req.Params)
+		return s.LuaLS.ForwardRequest(req.Method, req.Params)
 	}
 
 }
@@ -364,7 +387,7 @@ func (s *Server) handleDebouncedChange(params lsp.DidChangeTextDocumentParams) {
 			}
 			newParams.TextDocument.URI = lsp.DocumentURI(shadowURI)
 
-			s.luaLS.ForwardRequest("textDocument/didChange", newParams)
+			s.LuaLS.ForwardRequest("textDocument/didChange", newParams)
 		}
 	})
 	s.mu.Unlock()
