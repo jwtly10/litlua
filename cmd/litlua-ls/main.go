@@ -12,12 +12,6 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 )
 
-type stdRWC struct{}
-
-func (stdRWC) Read(p []byte) (int, error)  { return os.Stdin.Read(p) }
-func (stdRWC) Write(p []byte) (int, error) { return os.Stdout.Write(p) }
-func (stdRWC) Close() error                { return nil }
-
 const usage = `LitLua Language Server
 
 The LitLua Language Server provides LSP features for LitLua files, including:
@@ -93,7 +87,7 @@ func main() {
 
 	<-jsonrpc2.NewConn(
 		ctx,
-		jsonrpc2.NewBufferedStream(stdRWC{}, jsonrpc2.VSCodeObjectCodec{}),
+		jsonrpc2.NewBufferedStream(server.NewStdRWC(), jsonrpc2.VSCodeObjectCodec{}),
 		jsonrpc2.HandlerWithError(s.Handle),
 	).DisconnectNotify()
 }

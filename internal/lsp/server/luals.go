@@ -43,7 +43,7 @@ func NewLuaLs(server lspServer, luaLSPath string) (*LuaLS, error) {
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
-	rw := rwc{r: stdout, w: stdin}
+	rw := NewRWC(stdout, stdin)
 	stream := jsonrpc2.NewBufferedStream(rw, jsonrpc2.VSCodeObjectCodec{})
 
 	l := &LuaLS{

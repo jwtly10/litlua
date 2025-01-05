@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -15,22 +14,6 @@ import (
 	"github.com/sourcegraph/go-lsp"
 	"github.com/sourcegraph/jsonrpc2"
 )
-
-type rwc struct {
-	r io.ReadCloser
-	w io.WriteCloser
-}
-
-func (rw rwc) Read(p []byte) (int, error)  { return rw.r.Read(p) }
-func (rw rwc) Write(p []byte) (int, error) { return rw.w.Write(p) }
-func (rw rwc) Close() error {
-	rerr := rw.r.Close()
-	werr := rw.w.Close()
-	if rerr != nil {
-		return rerr
-	}
-	return werr
-}
 
 type Options struct {
 	// Custom path to lua-language-server

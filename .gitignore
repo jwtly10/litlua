@@ -2,3 +2,5 @@
 TODO.md
 *.bak
 *.md.lua
+
+examples/compiled.litlua.lua
