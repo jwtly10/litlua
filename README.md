@@ -157,6 +157,32 @@ Enable debug logging during conversion:
 litlua -debug <your_configuration_file_with_lua_src.litlua.md>
 ```
 
+Converts a directory, looking for`.litlua.md` markdown documents to transform to lua files as above.
+
+```bash
+litlua  ./path/to/config/files
+```
+
+*Example Output:*
+
+```sh
+~/Projects/litlua ❯ litlua ./examples/                                                                                 22.11.0  1.23.3
+
+🚀 Compilation is running:
+  📄 Path     : ./examples/
+
+Compilation Results:
+Source                                                                 Output
+--------------------------------------------------------------------------------------------------------------
+lsp_example.litlua.md                                                  compiled.litlua.lua
+wezterm/wezterm_configuration.litlua.md                                wezterm/.wezterm.lua
+kickstart.nvim/kickstart_configuration.litlua.md                       kickstart.nvim/output.litlua.lua
+--------------------------------------------------------------------------------------------------------------
+
+✨ Compilation complete! Processed 3 files
+
+```
+
 #### Output
 
 LitLua generates a single Lua file containing all the extracted code blocks, maintaining their original order as specified in the Markdown source.

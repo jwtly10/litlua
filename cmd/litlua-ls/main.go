@@ -60,8 +60,7 @@ func main() {
 		})))
 	} else {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			Level:     slog.LevelInfo,
-			AddSource: true,
+			Level: slog.LevelInfo,
 		})))
 	}
 

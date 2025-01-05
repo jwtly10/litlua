@@ -71,10 +71,8 @@ func main() {
 
 	processor := cli.NewProcessor(opts)
 	fmt.Printf("\n🚀 Compilation is running:\n"+
-		"  📄 Path     : %s\n"+
-		"  ⚙️ Options  : %s\n\n",
-		args[0],
-		opts.Pretty())
+		"  📄 Path     : %s\n",
+		args[0])
 
 	results, err := processor.ProcessPath(args[0])
 	if err != nil {
