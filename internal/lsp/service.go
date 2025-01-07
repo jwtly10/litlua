@@ -75,7 +75,7 @@ func NewDocumentService(opts DocumentServiceOptions) (*DocumentService, error) {
 
 	// Cleanup shadow files on GC finalization
 	runtime.SetFinalizer(d, func(d *DocumentService) {
-		if err := os.RemoveAll(d.shadowRoot); err != nil {
+		if err := d.CleanupShadowFiles(); err != nil {
 			slog.Error("failed to cleanup shadow files", "error", err)
 		}
 	})
@@ -178,7 +178,7 @@ func (s *DocumentService) PathToURI(path string) string {
 func (s *DocumentService) CleanupShadowFiles() error {
 	//  Don't cleanup the user specified path
 	if s.shadowRoot != DefaultDocumentServiceOptions.ShadowRoot {
-		slog.Debug("skipping shadow file cleanup due to user specified", "path", s.shadowRoot)
+		slog.Info("skipping shadow file cleanup due to user specified", "path", s.shadowRoot)
 		return nil
 	}
 

@@ -29,9 +29,10 @@ After spending some time with Emacs, I could see the value of having litterate c
 - [X] Basic Markdown to Lua conversion to SFO
 - [X] Built in LitLua LSP support 
 - [X] Live file compilations (via LSP)
+- [ ] Support compiling `litlua.md` files on Neovim startup
 - [ ] Single file to multiple file output (master file, into multiple configuration .lua files)
-- [ ] 'Tagging' of code blocks for easy reference
-- [ ] Hot swapping configuration management
+- [ ] 'Tagging' of code blocks for easy reference and linking
+- [ ] Hot swapping configuration management - switch between versions of configurations
 
 Generally the idea is this should seamlessly integrate into existing lua based configuration setups, such as Neovim, and work alongside existing lua files.
 With as much work done via the LSP as possible, to create a seamless experience and be editor agnostic.

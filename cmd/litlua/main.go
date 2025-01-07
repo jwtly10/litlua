@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jwtly10/litlua"
@@ -21,6 +22,9 @@ Usage:
 Examples:
   # Transform a single file with default settings
   $ litlua example.litlua.md
+
+  # Transform cwd directory with default settings
+  $ litlua .
 
   # Enable debug logging while transforming
   $ litlua -debug example.litlua.md
@@ -70,9 +74,16 @@ func main() {
 	}
 
 	processor := cli.NewProcessor(opts)
+
+	absPath, err := filepath.Abs(args[0])
+	if err != nil {
+		fmt.Printf("❌ Failed to resolve absolute path: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Printf("\n🚀 Compilation is running:\n"+
 		"  📄 Path     : %s\n",
-		args[0])
+		absPath)
 
 	results, err := processor.ProcessPath(args[0])
 	if err != nil {
