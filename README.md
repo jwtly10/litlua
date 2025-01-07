@@ -12,10 +12,15 @@ LitLua is a literate programming tool inspired by Emacs designed to support bett
 - 🛠 **Simple CLI Interface**: Easy to use optional command-line tooling
 - 📦 **LSP Support!**: Powered by LuaLS, LitLua provides built-in LSP support for your Markdown->Lua configurations
 
+##
+Here is a small demo of Litlua handling nvim configuration. You can find the Nvim configuration repo using Litlua here:  https://github.com/jwtly10/config.nvim
+
+
+https://github.com/user-attachments/assets/f928c89b-c42f-45da-8e7c-8c428b162882
 
 ## Why?
 
-After spending some time with Emacs, I could see the value of having litterate configurations for more than just the emacs eco system - configurations being just a readable 'pretty' markdown file, that will be 'transpiled' into the expected format!
+After spending some time with Emacs, I could see the value of having litterate configurations for more than just the emacs ecosystem - configurations being just a readable, documentation first markdown file, that will be 'transpiled' into the expected format!
 
 
 > Check out [Examples](https://github.com/jwtly10/litlua/blob/main/examples/kickstart.nvim/kickstart_configuration.litlua.md) for a small showcase of what LitLua is about. 
