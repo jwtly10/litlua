@@ -120,6 +120,12 @@ func (t *Transformer) transform(input MarkdownSource, forcedPath string) (string
 		return "", fmt.Errorf("parse error: %w", err)
 	}
 
+	baseName := filepath.Base(input.Metadata.AbsSource)
+	outputBaseName := filepath.Base(doc.Pragmas.Output)
+	if baseName == outputBaseName {
+		return "", fmt.Errorf("output file cannot have the same name as the input file")
+	}
+
 	var absTransformPath string
 	if forcedPath != "" {
 		absTransformPath = forcedPath
