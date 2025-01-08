@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/url"
 	"os"
@@ -176,12 +177,24 @@ func (s *DocumentService) PathToURI(path string) string {
 
 // CleanupShadowFiles removes all shadow files
 func (s *DocumentService) CleanupShadowFiles() error {
-	//  Don't cleanup the user specified path
 	if s.shadowRoot != DefaultDocumentServiceOptions.ShadowRoot {
 		slog.Info("skipping shadow file cleanup due to user specified", "path", s.shadowRoot)
 		return nil
 	}
 
-	slog.Debug("cleaning up shadow lsp files", "path", s.shadowRoot)
-	return os.RemoveAll(s.shadowRoot)
+	return filepath.WalkDir(s.shadowRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			slog.Warn("error accessing path", "path", path, "error", err)
+			return nil
+		}
+
+		if !d.IsDir() && strings.HasSuffix(d.Name(), "litlua.lua") {
+			if err := os.Remove(path); err != nil {
+				slog.Warn("failed to remove shadow file", "path", path, "error", err)
+			} else {
+				slog.Debug("removed shadow file", "path", path)
+			}
+		}
+		return nil
+	})
 }
