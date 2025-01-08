@@ -1,3 +1,3 @@
 package litlua
 
-const CLI_VERSION = "v0.0.1"
+const VERSION = "v0.0.2"

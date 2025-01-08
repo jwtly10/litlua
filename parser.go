@@ -26,10 +26,9 @@ func NewParser() *Parser {
 	}
 }
 
-// TODO: Refactor docs
-
-// ParseMarkdownDoc parses a markdown document into its constituent parts
-// see [TODO](TODO) for more information on the structure of the document
+// ParseMarkdownDoc parses Markdown content into a document
+//
+// It pulls out compilation pragmas and lua code blocks from the content and returns a [Document]
 func (p *Parser) ParseMarkdownDoc(r io.Reader, md MetaData) (*Document, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
@@ -41,9 +40,9 @@ func (p *Parser) ParseMarkdownDoc(r io.Reader, md MetaData) (*Document, error) {
 	}
 
 	hasWalkedOtherNodes := false
-	ast := p.gm.Parser().Parse(text.NewReader(content))
+	nodes := p.gm.Parser().Parse(text.NewReader(content))
 
-	err = p.walkAst(ast, content, &hasWalkedOtherNodes, doc)
+	err = p.walkAst(nodes, content, &hasWalkedOtherNodes, doc)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +54,10 @@ func (p *Parser) ParseMarkdownDoc(r io.Reader, md MetaData) (*Document, error) {
 	return doc, nil
 }
 
+func getLineNumber(content []byte, byteOffset int) int {
+	return bytes.Count(content[:byteOffset], []byte("\n")) + 1
+}
+
 // walkAst walks the AST of a markdown document and extracts pragmas and code blocks
 // from the document
 func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool, result *Document) error {
@@ -62,7 +65,7 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 		if !entering {
 			// Entering is true BEFORE walking children, false after walking child
 			// this way we only trigger the logic when entering a node,
-			// and dont retrigger upon exiting
+			// and don-t re-trigger upon exiting
 			return ast.WalkContinue, nil
 		}
 
@@ -93,7 +96,7 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 
 // handleHTMLBlock parses pragma values from HTML comments in markdown.
 //
-// # Only HTML comments at the top of the .md file are considered pragmas
+// # Only HTML comments at the top of the .litlua.md file are considered pragmas
 //
 // For example:
 //
@@ -119,7 +122,7 @@ func (p *Parser) walkAst(doc ast.Node, content []byte, hasWalkedOtherNodes *bool
 //
 // will not set the [Pragma] struct as the comments are not at the top of the file
 func (p *Parser) handleHTMLBlock(hb *ast.HTMLBlock, content []byte, hasWalkedOtherNodes *bool, doc *Document) error {
-	slog.Debug("Parsing html block", "hasWalkedOtherNodes", *hasWalkedOtherNodes)
+	slog.Debug("parsing html block", "hasWalkedOtherNodes", *hasWalkedOtherNodes)
 	if !*hasWalkedOtherNodes && hb.HTMLBlockType == ast.HTMLBlockType2 {
 		var buf bytes.Buffer
 		l := hb.Lines().Len()
@@ -141,18 +144,36 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 		return nil
 	}
 
+	lines := cb.Lines()
+
+	// If the code block is empty, we can skip it
+	if lines.Len() == 0 {
+		return nil
+	}
+
+	startLine := getLineNumber(content, lines.At(0).Start)
+	endLine := getLineNumber(content, lines.At(lines.Len()-1).Stop)
+
 	var buf bytes.Buffer
-	l := cb.Lines().Len()
-	slog.Debug("Parsing lua code block", "lines", l)
+	l := lines.Len()
 	for i := 0; i < l; i++ {
-		line := cb.Lines().At(i)
+		line := lines.At(i)
 		buf.Write(line.Value(content))
 	}
 
-	doc.Blocks = append(doc.Blocks, CodeBlock{
+	block := CodeBlock{
+		// We trim the last \n since the md parsing always appends a newline, even when not needed
 		Code:   buf.String(),
-		Source: doc.Metadata.Source,
-	})
+		Source: doc.Metadata.AbsSource,
+		Position: Position{
+			startLine,
+			endLine,
+		},
+	}
+
+	slog.Debug("parsed code block", "block", block)
+
+	doc.Blocks = append(doc.Blocks, block)
 	return nil
 }
 
@@ -168,18 +189,18 @@ func (p *Parser) handleCodeBlock(cb *ast.FencedCodeBlock, content []byte, doc *D
 // Will return an error if the value cannot be parsed
 func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 	line = strings.TrimSpace(line)
-	slog.Debug("Parsing pragma line", "line", line)
+	slog.Debug("parsing pragma line", "line", line)
 
 	matches := pragmaRegex.FindStringSubmatch(line)
 	if len(matches) != 3 {
-		slog.Debug("Invalid pragma line", "line", line)
+		slog.Debug("invalid pragma line", "line", line)
 		return nil
 	}
 
 	key := matches[1]
 	value := matches[2]
 
-	slog.Debug("Parsed pragma key value pair", "key", key, "value", value)
+	slog.Debug("parsed pragma key value pair", "key", key, "value", value)
 
 	switch key {
 	case string(PragmaOutput):
@@ -190,8 +211,14 @@ func (p *Parser) extractPragmaFromLine(pragma *Pragma, line string) error {
 			return fmt.Errorf("could not parse debug pragma value: %w", err)
 		}
 		pragma.Debug = b
+	case string(PragmaForce):
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("could not parse force pragma value: %w", err)
+		}
+		pragma.Force = b
 	default:
-		slog.Debug("Unknown pragma key", "key", key)
+		slog.Debug("unknown pragma key", "key", key)
 	}
 
 	return nil

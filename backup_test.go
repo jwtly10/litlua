@@ -65,19 +65,19 @@ func TestBackupManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			path := tt.setup(t)
-			bm := NewBackupManager(path)
+			bm := NewBackupManager()
 
-			got, err := bm.CreateBackup()
+			got, err := bm.CreateBackupOf(path)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateBackup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("CreateBackupOf() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if !tt.wantErr {
 				if tt.want == "" && got != "" {
-					t.Errorf("CreateBackup() = %v, want empty string", got)
+					t.Errorf("CreateBackupOf() = %v, want empty string", got)
 				} else if tt.want != "" && !strings.HasSuffix(got, tt.want) {
-					t.Errorf("CreateBackup() = %v, want suffix %v", got, tt.want)
+					t.Errorf("CreateBackupOf() = %v, want suffix %v", got, tt.want)
 				}
 
 				// Verify backup content matches original if backup was created

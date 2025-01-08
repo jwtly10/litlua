@@ -3,28 +3,65 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/jwtly10/litlua"
+	"github.com/jwtly10/litlua/internal/cli"
+	"github.com/jwtly10/litlua/internal/transformer"
 )
 
+const usage = `LitLua CLI
+The LitLua CLI provides manual transformation of LitLua markdown files into Lua
+
+Usage:
+  litlua [flags] <input-file>
+
+Examples:
+  # Transform a single file with default settings
+  $ litlua example.litlua.md
+
+  # Transform cwd directory with default settings
+  $ litlua .
+
+  # Enable debug logging while transforming
+  $ litlua -debug example.litlua.md
+
+  # Print version information
+  $ litlua -version
+
+Flags:
+`
+
 func main() {
-	var debug bool
-	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "A tool for processing Lua blocks in markdown files\n\n")
-		fmt.Fprintf(os.Stderr, "Flags:\n")
+		fmt.Fprintf(os.Stderr, usage)
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  litlua example.md\n")
-		fmt.Fprintf(os.Stderr, "  litlua -debug example.md\n")
 	}
+	var (
+		debug   = flag.Bool("debug", false, "Enable debug logging")
+		version = flag.Bool("version", false, "Print version information")
+	)
+
 	flag.Parse()
+
+	if *version {
+		fmt.Printf("litlua version %s\n", litlua.VERSION)
+		os.Exit(0)
+	}
+
+	if *debug {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level:     slog.LevelDebug,
+			AddSource: true,
+		})))
+	} else {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})))
+	}
 
 	args := flag.Args()
 	if len(args) != 1 {
@@ -32,84 +69,40 @@ func main() {
 		os.Exit(1)
 	}
 
-	inFile := args[0]
-
-	if debug {
-		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		})))
-	} else {
-		slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	opts := transformer.TransformOptions{
+		WriterMode: litlua.ModePretty,
 	}
 
-	if inFile == "" {
-		fmt.Println("Please provide an input file with -in")
-		os.Exit(1)
-	}
+	processor := cli.NewProcessor(opts)
 
-	ext := strings.ToLower(filepath.Ext(inFile))
-	if ext != ".md" {
-		fmt.Printf("Error: Invalid file extension %q. Supported extensions are: .md\n", ext)
-		os.Exit(1)
-	}
-
-	absPath, err := filepath.Abs(inFile)
+	absPath, err := filepath.Abs(args[0])
 	if err != nil {
-		fmt.Printf("Error resolving absolute path: %v\n", err)
+		fmt.Printf("❌ Failed to resolve absolute path: %v\n", err)
 		os.Exit(1)
 	}
 
-	f, err := os.Open(inFile)
+	fmt.Printf("\n🚀 Compilation is running:\n"+
+		"  📄 Path     : %s\n",
+		absPath)
+
+	results, err := processor.ProcessPath(args[0])
 	if err != nil {
-		fmt.Printf("Error opening file: %v\n", err)
-		os.Exit(1)
-	}
-	defer f.Close()
-
-	fmt.Printf("\n🔍 LitLua is running! Source: %s\n\n", filepath.Base(inFile))
-
-	parser := litlua.NewParser()
-	doc, err := parser.ParseMarkdownDoc(f, litlua.MetaData{
-		Source: absPath,
-	})
-	if err != nil {
-		fmt.Printf("Error parsing source file: %v\n", err)
+		fmt.Printf("❌ Compilation failed: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("📝 Found %d Lua blocks to process\n", len(doc.Blocks))
+	fmt.Println("\nCompilation Results:")
+	fmt.Printf("%-70s %-30s\n", "Source", "Output")
+	fmt.Println(strings.Repeat("-", 110))
 
-	outPath, err := litlua.ResolveOutputPath(inFile, doc.Pragmas)
-	if err != nil {
-		fmt.Printf("Error resolving output path: %v\n", err)
-		os.Exit(1)
+	for _, result := range results {
+		fmt.Printf("%-70s %-30s \n",
+			result.Path,
+			result.OutPath,
+		)
 	}
 
-	backupMgr := litlua.NewBackupManager(outPath)
-	backupPath, err := backupMgr.CreateBackup()
-	if err != nil {
-		fmt.Printf("Error creating backup: %v\n", err)
-		os.Exit(1)
-	}
+	fmt.Println(strings.Repeat("-", 110))
 
-	if backupPath != "" {
-		fmt.Printf("💾 Created backup of existing file to %v\n", litlua.MustAbs(backupPath))
-	}
-
-	out, err := os.Create(outPath)
-	if err != nil {
-		fmt.Printf("Error creating output file: %v\n", err)
-		os.Exit(1)
-	}
-	defer out.Close()
-
-	now := time.Now()
-	writer := litlua.NewWriter(out)
-	if err := writer.Write(doc, now); err != nil {
-		fmt.Printf("Error writing output: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("✨ Successfully wrote output to %s\n", litlua.MustAbs(outPath))
-
+	fmt.Printf("\n✨ Compilation complete! Processed %d files\n", len(results))
 }

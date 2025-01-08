@@ -12,20 +12,23 @@ type Document struct {
 }
 
 type MetaData struct {
-	// The source file path
-	Source string
+	// The absolute file path of the markdown source file
+	AbsSource string
 }
 
 type PragmaKey string
 
 const (
 	PragmaOutput PragmaKey = "output"
+	PragmaForce  PragmaKey = "force"
 	PragmaDebug  PragmaKey = "debug"
 )
 
 type Pragma struct {
 	// The lua file output directory, relative to the source markdown file
 	Output string
+	// Force the output file type directly (to not convert to .litlua.lua)
+	Force bool
 	// Internal flag for additional debugging output
 	Debug bool
 }
@@ -35,4 +38,13 @@ type CodeBlock struct {
 	Code string
 	// The original markdown source code file where the code block extracted from
 	Source string
+	// The position of the code block in the source file
+	Position Position
+}
+
+// Position represents the start and end line numbers of a code block in the source file
+type Position struct {
+	StartLine int
+	// Note the end line always contains the ``` of the code block
+	EndLine int
 }

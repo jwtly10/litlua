@@ -1,9 +1,10 @@
 package litlua
 
 import (
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCanParseMarkdownDoc(t *testing.T) {
@@ -17,10 +18,10 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 	}{
 		{
 			name:    "test parse basic markdown doc",
-			srcFile: "testdata/parser/basic_valid.md",
+			srcFile: "testdata/parser/basic_valid.litlua.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/parser/basic_valid.md",
+					AbsSource: "testdata/parser/basic_valid.litlua.md",
 				},
 				Pragmas: Pragma{
 					Output: "init.lua",
@@ -29,41 +30,96 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 				Blocks: []CodeBlock{
 					{
 						Code:   "print(\"Hello World\")\n",
-						Source: "testdata/parser/basic_valid.md",
+						Source: "testdata/parser/basic_valid.litlua.md",
+						Position: Position{
+							StartLine: 10,
+							EndLine:   11,
+						},
 					},
 					{
 						Code:   "print(\"Goodbye World\")\n\n",
-						Source: "testdata/parser/basic_valid.md",
+						Source: "testdata/parser/basic_valid.litlua.md",
+						Position: Position{
+							StartLine: 15,
+							EndLine:   17,
+						},
+					},
+					{
+						Code:   "print(\"Goodbye World\")\n-- This is a multiline lua src\n",
+						Source: "testdata/parser/basic_valid.litlua.md",
+						Position: Position{
+							StartLine: 20,
+							EndLine:   22,
+						},
 					},
 				},
 			},
 		},
 		{
 			name:    "test parse basic markdown doc with bad pragmas",
-			srcFile: "testdata/parser/basic_invalid.md",
+			srcFile: "testdata/parser/basic_invalid.litlua.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/parser/basic_invalid.md",
+					AbsSource: "testdata/parser/basic_invalid.litlua.md",
 				},
 				Pragmas: Pragma{},
 				Blocks: []CodeBlock{
 					{
 						Code:   "print(\"Hello World\")\n",
-						Source: "testdata/parser/basic_invalid.md",
+						Source: "testdata/parser/basic_invalid.litlua.md",
+						Position: Position{
+							StartLine: 11,
+							EndLine:   12,
+						},
 					},
 					{
 						Code:   "print(\"Goodbye World\")\n\n",
-						Source: "testdata/parser/basic_invalid.md",
+						Source: "testdata/parser/basic_invalid.litlua.md",
+						Position: Position{
+							StartLine: 15,
+							EndLine:   17,
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "test parse file with empty lua blocks",
+			srcFile: "testdata/parser/empty_lua.litlua.md",
+			document: Document{
+				Metadata: MetaData{
+					AbsSource: "testdata/parser/empty_lua.litlua.md",
+				},
+				Pragmas: Pragma{
+					Output: "init.lua",
+					Debug:  true,
+				},
+				Blocks: []CodeBlock{
+					{
+						Code:   "print(\"Hello World\")\n",
+						Source: "testdata/parser/empty_lua.litlua.md",
+						Position: Position{
+							StartLine: 5,
+							EndLine:   6,
+						},
+					},
+					{
+						Code:   "\n",
+						Source: "testdata/parser/empty_lua.litlua.md",
+						Position: Position{
+							StartLine: 8,
+							EndLine:   9,
+						},
 					},
 				},
 			},
 		},
 		{
 			name:    "test fail to parse file with no lua",
-			srcFile: "testdata/parser/no_lua.md",
+			srcFile: "testdata/parser/no_lua.litlua.md",
 			document: Document{
 				Metadata: MetaData{
-					Source: "testdata/parser/no_lua.md",
+					AbsSource: "testdata/parser/no_lua.litlua.md",
 				},
 				Pragmas: Pragma{},
 				Blocks:  []CodeBlock{},
@@ -92,6 +148,9 @@ func TestCanParseMarkdownDoc(t *testing.T) {
 
 			for i := 0; i < len(d.Blocks); i++ {
 				require.Equal(t, tc.document.Blocks[i].Code, d.Blocks[i].Code)
+				require.Equal(t, tc.document.Blocks[i].Source, d.Blocks[i].Source)
+				require.Equal(t, tc.document.Blocks[i].Position.StartLine, d.Blocks[i].Position.StartLine)
+				require.Equal(t, tc.document.Blocks[i].Position.EndLine, d.Blocks[i].Position.EndLine)
 			}
 
 			require.Equal(t, tc.document.Pragmas, d.Pragmas)
@@ -112,6 +171,13 @@ func TestCanExtractPragmaFromLine(t *testing.T) {
 			line: "<!-- @pragma output: init.lua -->",
 			expected: Pragma{
 				Output: "init.lua",
+			},
+		},
+		{
+			name: "test bool force pragma",
+			line: "<!-- @pragma force: true -->",
+			expected: Pragma{
+				Force: true,
 			},
 		},
 		{
